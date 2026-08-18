@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "metaboguard-v2"
+version = "0.7.2"
+description = "Self-supervised metabolic early-warning research system for synthetic data."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "fastapi==0.116.1",
+    "hydra-core==1.3.2",
+    "numpy==2.3.2",
+    "pandas==2.3.1",
+    "pyarrow==21.0.0",
+    "pydantic==2.11.7",
+    "scikit-learn==1.7.1",
+    "uvicorn[standard]==0.35.0",
+]
+
+[project.scripts]
+metaboguard-production = "metaboguard.data.production_cli:main"
+
+[dependency-groups]
+dev = [
+    "mypy==1.17.1",
+    "pytest==8.4.1",
+    "pytest-cov==6.2.1",
+    "ruff==0.12.7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/metaboguard"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --cov=metaboguard --cov-fail-under=100 --cov-report=term-missing"
+markers = [
+    "unit: fast deterministic unit tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ANN", "PT", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/cohort/*.py" = ["ANN001"]
+"tests/features/*.py" = ["ANN001"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+warn_unreachable = true
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+omit = ["src/metaboguard/schema.py", "src/metaboguard/canonical.py", "src/metaboguard/validation.py"]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

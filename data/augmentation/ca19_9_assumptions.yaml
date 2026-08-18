@@ -1,0 +1,5 @@
+biomarker: ca19_9
+status: generated_not_observed
+model: pending_step_3_specification
+seed_config_key: project.seed
+source: synthetic_only

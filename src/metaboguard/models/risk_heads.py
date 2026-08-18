@@ -1,0 +1,1 @@
+"""Risk-head model boundary."""

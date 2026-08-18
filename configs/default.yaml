@@ -1,0 +1,195 @@
+project:
+        name: metaboguard-v2
+        simulation_mode: true
+        seed: 1729
+        timezone: UTC
+
+paths:
+        data_root: data
+        artifact_root: artifacts
+        config_root: configs
+        schema_artifact: artifacts/schema/longitudinal_schema.json
+        validation_report: artifacts/validation/dataset_validation_report.json
+
+research:
+        horizons_years: [1, 3, 5]
+        minimum_events: 50
+        minimum_nonevents: 50
+        underpowered_test_event_limit: 30
+        minimum_auroc: 0.60
+        minimum_calibration_slope: 0.20
+        minimum_time_reversal_auroc_drop: 0.02
+
+validation:
+        allowed_cohorts: [synthetic, fixed_validation]
+        real_inference_status_code: 409
+        minimum_encounters: 2
+        maximum_missingness: 0.95
+        age_tolerance_days: 1
+
+synthea:
+        synthea_version: "3.3.0"
+        jar_path: "data/tools/synthea-with-dependencies.jar"
+        jar_sha256: "8ba04f7d73abadd5a377e41edf24c5c83935a1cb07c6d982cd5db731ef1cf445"
+        geography: "Massachusetts"
+        min_age: 18
+        max_age: 100
+        batch_size: 10000
+        output_root: "data/synthetic_longitudinal"
+        java_executable: "java"
+        ordinary_incidence_target: 250000
+        enriched_pancreatic_target: 100000
+        enriched_multicancer_target: 200000
+        pancreatic_development_events_target: 250
+        evaluation_events_target: 100
+        enabled_cancer_sites: [pancreas, colorectal, breast, prostate, lung]
+
+production_generation:
+        enabled: true
+        simulation_only: true
+        cohort_classes:
+                ordinary_incidence:
+                        enabled: true
+                        population_sizes: [25000]
+                        seeds: [20260817]
+                        augmentation_profile: baseline
+                enriched_incidence:
+                        enabled: true
+                        population_sizes: [25000]
+                        seeds: [20260818]
+                        augmentation_profile: endpoint_enriched
+        endpoints: [type2_diabetes, pancreatic_cancer]
+        horizons_years: [1, 3, 5]
+        retry:
+                max_attempts: 2
+                retry_only_failed_batches: true
+        execution:
+                batch_population_size: 5000
+                java_executable: "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.20.8-hotspot\\bin\\java.exe"
+                jvm_options: [-Xmx4g, -XX:ActiveProcessorCount=4]
+                continue_on_independent_batch_failure: true
+                require_canonical_validation_before_cohort_build: true
+                require_complete_feature_build_before_readiness: true
+        reporting:
+                write_per_run_reports: true
+                write_cohort_class_feasibility_summary: true
+                write_cross_run_manifest: true
+
+cohort:
+        endpoint_definition_version: "1.0.0"
+        endpoints:
+                type2_diabetes:
+                        outcome_family: diabetes
+                        cancer_site: null
+                        diabetes_type: type2
+                        horizon_years: [1, 3, 5]
+                        minimum_age_years: 18
+                        minimum_history_days: 365
+                        minimum_preindex_encounters: 2
+                        minimum_preindex_measurements: 2
+                        rolling_index_interval_days: 180
+                        prevalent_exclusion: true
+                        washout_days: 0
+                        use_competing_death_risk: true
+                        enabled: false
+                pancreatic_cancer:
+                        outcome_family: cancer
+                        cancer_site: pancreas
+                        diabetes_type: null
+                        horizon_years: [1, 3, 5]
+                        minimum_age_years: 18
+                        minimum_history_days: 365
+                        minimum_preindex_encounters: 2
+                        minimum_preindex_measurements: 2
+                        rolling_index_interval_days: 180
+                        prevalent_exclusion: true
+                        washout_days: 365
+                        use_competing_death_risk: true
+                        enabled: false
+                colorectal_cancer:
+                        outcome_family: cancer
+                        cancer_site: colorectal
+                        diabetes_type: null
+                        horizon_years: [1, 3, 5]
+                        minimum_age_years: 18
+                        minimum_history_days: 365
+                        minimum_preindex_encounters: 2
+                        minimum_preindex_measurements: 2
+                        rolling_index_interval_days: 180
+                        prevalent_exclusion: true
+                        washout_days: 0
+                        use_competing_death_risk: true
+                        enabled: false
+                breast_cancer:
+                        outcome_family: cancer
+                        cancer_site: breast
+                        diabetes_type: null
+                        horizon_years: [1, 3, 5]
+                        minimum_age_years: 18
+                        minimum_history_days: 365
+                        minimum_preindex_encounters: 2
+                        minimum_preindex_measurements: 2
+                        rolling_index_interval_days: 180
+                        prevalent_exclusion: true
+                        washout_days: 0
+                        use_competing_death_risk: true
+                        enabled: false
+                prostate_cancer:
+                        outcome_family: cancer
+                        cancer_site: prostate
+                        diabetes_type: null
+                        horizon_years: [1, 3, 5]
+                        minimum_age_years: 18
+                        minimum_history_days: 365
+                        minimum_preindex_encounters: 2
+                        minimum_preindex_measurements: 2
+                        rolling_index_interval_days: 180
+                        prevalent_exclusion: true
+                        washout_days: 0
+                        use_competing_death_risk: true
+                        enabled: false
+                lung_cancer:
+                        outcome_family: cancer
+                        cancer_site: lung
+                        diabetes_type: null
+                        horizon_years: [1, 3, 5]
+                        minimum_age_years: 18
+                        minimum_history_days: 365
+                        minimum_preindex_encounters: 2
+                        minimum_preindex_measurements: 2
+                        rolling_index_interval_days: 180
+                        prevalent_exclusion: true
+                        washout_days: 0
+                        use_competing_death_risk: true
+                        enabled: false
+        split:
+                root_seed: 1729
+                train_fraction: 0.65
+                validation_fraction: 0.15
+                test_fraction: 0.20
+                temporal_holdout_cap: 0.25
+
+features:
+        feature_windows_days:
+                recent: 30
+                short: 90
+                medium: 365
+                long: 1095
+                lifetime: null
+        trajectory_epsilon: 0.001
+        missingness_warning_threshold: 0.95
+
+readiness:
+        minimum_events_per_horizon: 50
+        minimum_eligible_non_events_per_horizon: 50
+        minimum_events_per_evaluation_partition: 30
+        minimum_feature_row_coverage_fraction: 1.0
+        maximum_feature_missingness_fraction: 0.95
+        maximum_all_null_feature_fraction: 0.20
+        maximum_zero_variance_feature_fraction: 0.50
+        require_feature_artifacts: true
+        require_complete_feature_build: true
+        require_lineage_audit: true
+        require_patient_isolated_splits: true
+        require_temporal_holdout: true
+        allow_simulation_only_model_research: false

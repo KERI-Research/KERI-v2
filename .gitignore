@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+.uv/
+
+# Local data and generated artifacts
+data/raw/
+data/processed/
+data/synthetic_longitudinal/
+artifacts/*
+!artifacts/model_cards/
+!artifacts/schema/
+!artifacts/schema/*
+!artifacts/validation/
+!artifacts/validation/*
+*.jar
+*.parquet
+*.csv
+*.jsonl
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+.vscode/settings.json

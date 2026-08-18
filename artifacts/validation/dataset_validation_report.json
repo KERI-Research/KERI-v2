@@ -1,0 +1,165 @@
+{
+  "checks": [
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "referential_integrity",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "chronology",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "no_events_after_death",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "age_at_event",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "plausible_ranges",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "missingness_consistency",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "canonical_units",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "denylist",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "augmentation_module",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "diabetes_onset_after_birth",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "cancer_site",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "error",
+      "message": "",
+      "name": "unique_patient_ids",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "warning",
+      "message": "",
+      "name": "minimum_encounters",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "warning",
+      "message": "",
+      "name": "missingness_rate",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    },
+    {
+      "example_ids": [],
+      "level": "warning",
+      "message": "",
+      "name": "population_range_review",
+      "offending_row_count": 0,
+      "passed": true,
+      "status": "passed",
+      "warning_count": 0
+    }
+  ],
+  "dataset_sha256": "9184f847cff4d60284843d72e0c8f859527f27f2fc7acf97e5295670790c6cc4",
+  "dropped_loinc_codes": {},
+  "passed": true,
+  "report_path": "artifacts/validation/dataset_validation_report.json",
+  "row_counts": {
+    "conditions": 21704,
+    "events": 322668,
+    "outcomes": 301,
+    "patients": 575
+  },
+  "schema_version": "2.0.0"
+}

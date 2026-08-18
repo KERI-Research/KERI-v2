@@ -1,0 +1,8 @@
+{
+  "dropped_loinc_codes": {
+    "99999-9": 1
+  },
+  "encounter_counts": {
+    "p-001": 6
+  }
+}

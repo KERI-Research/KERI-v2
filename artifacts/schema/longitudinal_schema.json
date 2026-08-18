@@ -1,0 +1,261 @@
+{
+  "$id": "metaboguard://schema/longitudinal/2.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "definitions": {
+    "ClinicalEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "age_at_event": {
+          "title": "Age At Event",
+          "type": "number"
+        },
+        "augmentation_module": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Augmentation Module"
+        },
+        "encounter_type": {
+          "enum": [
+            "wellness",
+            "ambulatory",
+            "emergency",
+            "inpatient",
+            "other"
+          ],
+          "title": "Encounter Type",
+          "type": "string"
+        },
+        "event_date": {
+          "format": "date",
+          "title": "Event Date",
+          "type": "string"
+        },
+        "feature_name": {
+          "title": "Feature Name",
+          "type": "string"
+        },
+        "is_missing": {
+          "title": "Is Missing",
+          "type": "boolean"
+        },
+        "patient_id": {
+          "minLength": 1,
+          "title": "Patient Id",
+          "type": "string"
+        },
+        "provenance": {
+          "enum": [
+            "synthea_native",
+            "augmented"
+          ],
+          "title": "Provenance",
+          "type": "string"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "patient_id",
+        "event_date",
+        "age_at_event",
+        "encounter_type",
+        "feature_name",
+        "value",
+        "unit",
+        "is_missing",
+        "provenance"
+      ],
+      "title": "ClinicalEvent",
+      "type": "object"
+    },
+    "ConditionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "cancer_site": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cancer Site"
+        },
+        "category": {
+          "enum": [
+            "diabetes",
+            "cancer",
+            "other"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "condition_code": {
+          "title": "Condition Code",
+          "type": "string"
+        },
+        "condition_display": {
+          "title": "Condition Display",
+          "type": "string"
+        },
+        "condition_system": {
+          "title": "Condition System",
+          "type": "string"
+        },
+        "diabetes_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "type1",
+                "type2",
+                "gestational"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diabetes Type"
+        },
+        "onset_date": {
+          "format": "date",
+          "title": "Onset Date",
+          "type": "string"
+        },
+        "patient_id": {
+          "minLength": 1,
+          "title": "Patient Id",
+          "type": "string"
+        },
+        "resolved_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved Date"
+        }
+      },
+      "required": [
+        "patient_id",
+        "condition_code",
+        "condition_system",
+        "condition_display",
+        "onset_date",
+        "category"
+      ],
+      "title": "ConditionRecord",
+      "type": "object"
+    },
+    "OutcomeRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "outcome_date": {
+          "format": "date",
+          "title": "Outcome Date",
+          "type": "string"
+        },
+        "outcome_type": {
+          "title": "Outcome Type",
+          "type": "string"
+        },
+        "patient_id": {
+          "minLength": 1,
+          "title": "Patient Id",
+          "type": "string"
+        },
+        "source_condition_code": {
+          "title": "Source Condition Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "patient_id",
+        "outcome_type",
+        "outcome_date",
+        "source_condition_code"
+      ],
+      "title": "OutcomeRecord",
+      "type": "object"
+    },
+    "Patient": {
+      "additionalProperties": false,
+      "properties": {
+        "birth_date": {
+          "format": "date",
+          "title": "Birth Date",
+          "type": "string"
+        },
+        "death_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Death Date"
+        },
+        "ethnicity": {
+          "title": "Ethnicity",
+          "type": "string"
+        },
+        "patient_id": {
+          "minLength": 1,
+          "title": "Patient Id",
+          "type": "string"
+        },
+        "sex": {
+          "enum": [
+            "male",
+            "female"
+          ],
+          "title": "Sex",
+          "type": "string"
+        }
+      },
+      "required": [
+        "patient_id",
+        "birth_date",
+        "sex",
+        "ethnicity"
+      ],
+      "title": "Patient",
+      "type": "object"
+    }
+  },
+  "title": "MetaboGuard v2 longitudinal canonical schema",
+  "x-schema-version": "2.0.0"
+}
