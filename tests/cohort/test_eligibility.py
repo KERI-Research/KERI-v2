@@ -5,12 +5,14 @@ import pytest
 
 from metaboguard.cohort.eligibility import (
     _age_on,
+    _patient_final_date,
     build_eligible_patient_indexes,
     classify_index_candidate,
     endpoint_conditions,
 )
 from metaboguard.data.canonical import CanonicalDataset
 from metaboguard.data.manifests import CohortClassMismatchError
+from metaboguard.data.schema import Patient
 
 
 def test_eligibility_excludes_prevalent_patient(cohort_dataset, diabetes_endpoint) -> None:
@@ -41,6 +43,49 @@ def test_candidate_reasons(cohort_dataset, diabetes_endpoint) -> None:
         classify_index_candidate(cohort_dataset, diabetes_endpoint, "p-positive", date(2015, 1, 1))
         == "insufficient_history"
     )
+
+
+def test_patient_final_date_is_bounded_by_death(cohort_dataset) -> None:
+    with_post_death_activity = replace(
+        cohort_dataset,
+        events=[
+            *cohort_dataset.events,
+            cohort_dataset.events[0].model_copy(
+                update={"patient_id": "p-competing", "event_date": date(2020, 1, 1)}
+            ),
+        ],
+    )
+    death_only = CanonicalDataset(
+        [
+            Patient(
+                patient_id="p-death-only",
+                birth_date=date(1980, 1, 1),
+                sex="male",
+                ethnicity="x",
+                death_date=date(2022, 1, 1),
+            )
+        ],
+        [],
+        [],
+        [],
+    )
+    no_activity = CanonicalDataset(
+        [
+            Patient(
+                patient_id="p-no-activity",
+                birth_date=date(1980, 1, 1),
+                sex="male",
+                ethnicity="x",
+            )
+        ],
+        [],
+        [],
+        [],
+    )
+
+    assert _patient_final_date(with_post_death_activity, "p-competing") == date(2018, 6, 1)
+    assert _patient_final_date(death_only, "p-death-only") == date(2022, 1, 1)
+    assert _patient_final_date(no_activity, "p-no-activity") is None
 
 
 def test_candidate_exclusion_reasons(

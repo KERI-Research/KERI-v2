@@ -8,7 +8,6 @@ from collections.abc import Sequence
 from dataclasses import asdict
 from datetime import date
 from pathlib import Path
-from typing import Any
 
 import pandas as pd  # type: ignore[import-untyped]
 
@@ -37,7 +36,7 @@ def _date_or_none(value: date | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
-def _patient_index_to_dict(row: PatientIndex) -> dict[str, Any]:
+def _patient_index_to_dict(row: PatientIndex) -> dict[str, object]:
     """Serialise PatientIndex without dataclasses.asdict() to avoid the
     Python 3.13 tuple_iterator regression on slots=True frozen dataclasses."""
     return {
@@ -54,7 +53,7 @@ def _patient_index_to_dict(row: PatientIndex) -> dict[str, Any]:
     }
 
 
-def _horizon_label_to_dict(row: HorizonLabel) -> dict[str, Any]:
+def _horizon_label_to_dict(row: HorizonLabel) -> dict[str, object]:
     """Serialise HorizonLabel without dataclasses.asdict() for the same reason."""
     return {
         "patient_id": row.patient_id,
@@ -73,20 +72,30 @@ def _horizon_label_to_dict(row: HorizonLabel) -> dict[str, Any]:
     }
 
 
-def _row_to_dict(row: Any) -> dict[str, Any]:
+def _row_to_dict(row: object) -> dict[str, object]:
     if isinstance(row, PatientIndex):
         return _patient_index_to_dict(row)
     if isinstance(row, HorizonLabel):
         return _horizon_label_to_dict(row)
-    return asdict(row)  # type: ignore[arg-type]
+    return {str(key): value for key, value in asdict(row).items()}  # type: ignore[call-overload]
 
 
-def _write_rows(rows: Sequence[Any], path: Path) -> None:
+def _sortable_columns(frame: pd.DataFrame) -> list[str]:
+    return [
+        str(column)
+        for column in frame.columns
+        if not frame[column].map(lambda value: isinstance(value, list)).any()
+    ]
+
+
+def _write_rows(rows: Sequence[object], path: Path) -> None:
     frame = pd.DataFrame([_row_to_dict(row) for row in rows])
     if frame.empty:
         frame = pd.DataFrame({"patient_id": pd.Series(dtype="string")})
     if not frame.empty:
-        frame = frame.sort_values(list(frame.columns), kind="mergesort").reset_index(drop=True)
+        sort_columns = _sortable_columns(frame)
+        if sort_columns:
+            frame = frame.sort_values(sort_columns, kind="mergesort").reset_index(drop=True)
     frame.to_parquet(path, index=False, engine="pyarrow", compression="zstd")
 
 

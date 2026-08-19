@@ -17,6 +17,7 @@ from metaboguard.data.production_generation import (
     ProductionGenerationConfig,
     _generation_config,
     _load_batch_records,
+    _run_frozen_pipeline,
     generate_configured_production_runs,
     generate_production_run,
     load_production_config,
@@ -207,6 +208,74 @@ def test_batch_records_and_retry_success(tmp_path: Path, monkeypatch: pytest.Mon
     )
     assert attempts[0] == 2
     assert manifest.status == "completed"
+
+
+def test_frozen_pipeline_writes_feature_artifacts_when_streaming_has_no_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_path = tmp_path / "ordinary_incidence" / "run"
+    run_path.mkdir(parents=True)
+    (run_path / "generation_manifest.json").write_text(
+        json.dumps({"cohort_class": "ordinary_incidence"}), encoding="utf-8"
+    )
+    dataset = SimpleNamespace(patients=[object()], cohort_class="")
+    cohort = SimpleNamespace(patient_indexes=[], labels=[])
+    split = SimpleNamespace(assignments={})
+    calls: list[Path] = []
+
+    def construct_cohort(_dataset: object, _endpoint: object, path: Path, _sha: str) -> object:
+        path.mkdir(parents=True)
+        (path / "cohort_manifest.json").write_text(
+            json.dumps({"feature_status": "not_created"}), encoding="utf-8"
+        )
+        return cohort
+
+    def capture_artifacts(
+        _feature_dataset: object, output_dir: Path, _manifest: Path
+    ) -> dict[str, object]:
+        calls.append(output_dir)
+        return {"row_count": 0}
+
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation._read_canonical_dir", lambda _path: dataset
+    )
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation.load_endpoint_registry",
+        lambda: {"type2_diabetes": object()},
+    )
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation.construct_endpoint_cohort", construct_cohort
+    )
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation.build_splits",
+        lambda _cohort, _config: split,
+    )
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation.write_split_artifacts", lambda *_args: None
+    )
+    monkeypatch.setattr("metaboguard.data.production_generation.file_sha256", lambda _path: "sha")
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation.extract_features",
+        lambda *_args, **_kwargs: SimpleNamespace(rows=[], lineage=[], registry={}),
+    )
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation.write_feature_artifacts", capture_artifacts
+    )
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation.build_readiness_bundle", lambda *_args: None
+    )
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation.build_production_feasibility",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation.write_production_feasibility",
+        lambda *_args: None,
+    )
+
+    _run_frozen_pipeline(run_path, ("type2_diabetes",), "generation-sha")
+
+    assert calls == [run_path / "features" / "type2_diabetes"]
 
 
 def test_generation_config_rejects_malformed_execution_config(
