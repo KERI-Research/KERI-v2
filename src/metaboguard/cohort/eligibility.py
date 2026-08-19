@@ -7,7 +7,7 @@ from datetime import date
 from metaboguard.cohort.protocol import EndpointProtocol, PatientIndex
 from metaboguard.data.canonical import CanonicalDataset
 from metaboguard.data.manifests import CohortClassMismatchError, assert_same_cohort_class
-from metaboguard.data.schema import ConditionRecord
+from metaboguard.data.schema import ClinicalEvent, ConditionRecord, Patient
 
 
 def build_eligible_patient_indexes(
@@ -77,13 +77,23 @@ def _index_reason(
     endpoint: EndpointProtocol,
     patient_id: str,
     index_date: date,
+    *,
+    patient: Patient | None = None,
+    endpoint_date: date | None = None,
+    history: list[ClinicalEvent] | None = None,
 ) -> str | None:
-    patient = next(patient for patient in dataset.patients if patient.patient_id == patient_id)
+    patient = patient or next(
+        patient for patient in dataset.patients if patient.patient_id == patient_id
+    )
     if _age_on(patient.birth_date, index_date) < endpoint.minimum_age_years:
         return "under_minimum_age"
     if patient.death_date is not None and index_date > patient.death_date:
         return "index_after_death"
-    endpoint_date = _first_endpoint_date(dataset, endpoint, patient_id)
+    endpoint_date = (
+        _first_endpoint_date(dataset, endpoint, patient_id)
+        if endpoint_date is None
+        else endpoint_date
+    )
     if endpoint.prevalent_exclusion and endpoint_date is not None and endpoint_date <= index_date:
         return "prevalent_endpoint"
     if endpoint_date is not None and endpoint_date <= index_date:
@@ -91,7 +101,7 @@ def _index_reason(
     if endpoint.washout_days and endpoint_date is not None:
         if endpoint_date <= index_date.fromordinal(index_date.toordinal() + endpoint.washout_days):
             return f"excluded_{endpoint.endpoint_id}_washout"
-    history = [
+    history = history or [
         event
         for event in dataset.events
         if event.patient_id == patient_id and event.event_date <= index_date
@@ -116,9 +126,11 @@ def make_patient_index(
     index_date: date,
     sequence_number: int,
     index_source: str,
+    *,
+    history: list[ClinicalEvent] | None = None,
 ) -> PatientIndex:
     """Build an index record and retain only history at or before the cutoff."""
-    history = [
+    history = history or [
         event
         for event in dataset.events
         if event.patient_id == patient_id and event.event_date <= index_date

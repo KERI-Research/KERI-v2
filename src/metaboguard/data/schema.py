@@ -27,7 +27,7 @@ class StrictModel(BaseModel):
 class Patient(StrictModel):
     patient_id: str = Field(min_length=1)
     birth_date: date
-    sex: Literal["male", "female"]
+    sex: str | Literal["male", "female", "other"] | None
     ethnicity: str
     death_date: date | None = None
 

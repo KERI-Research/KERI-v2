@@ -14,6 +14,8 @@ Production configuration lives under `production_generation` in `configs/default
 
 Use the `metaboguard-production` command for Step 7 runs. It uses the configured Java executable, JVM options, pinned Synthea JAR, output root, and cohort-specific production plan. It never runs both cohort classes from a single command.
 
+The tested Windows/Temurin configuration uses a 4 GB heap, Serial GC, and four active processors. Serial GC is required because Temurin 17 G1 has produced native `jvm.dll` access violations on this host even when physical memory and pagefile capacity remain available. The `TotalPageFile` value in a JVM crash report is system capacity, not the amount requested by Java.
+
 Preview a plan first. This prints the immutable plan and does not start Java or write artifacts:
 
 ```bash

@@ -151,15 +151,15 @@
       "warning_count": 0
     }
   ],
-  "dataset_sha256": "9184f847cff4d60284843d72e0c8f859527f27f2fc7acf97e5295670790c6cc4",
+  "dataset_sha256": "bd66179f535beb66994749e9208078bdfdbe3102efe7f733f123dbd4274754c0",
   "dropped_loinc_codes": {},
   "passed": true,
   "report_path": "artifacts/validation/dataset_validation_report.json",
   "row_counts": {
-    "conditions": 21704,
-    "events": 322668,
-    "outcomes": 301,
-    "patients": 575
+    "conditions": 224519,
+    "events": 3416360,
+    "outcomes": 3233,
+    "patients": 5791
   },
   "schema_version": "2.0.0"
 }

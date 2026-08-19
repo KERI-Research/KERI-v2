@@ -238,12 +238,23 @@
           "type": "string"
         },
         "sex": {
-          "enum": [
-            "male",
-            "female"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "male",
+                "female",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Sex",
-          "type": "string"
+          "title": "Sex"
         }
       },
       "required": [

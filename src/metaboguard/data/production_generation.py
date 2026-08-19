@@ -26,7 +26,7 @@ from metaboguard.data.synthea_runner import (
     generate_synthea_cohort,
 )
 from metaboguard.features.extraction import extract_features
-from metaboguard.features.manifests import write_feature_artifacts
+from metaboguard.features.manifests import StreamingFeatureArtifactWriter, write_feature_artifacts
 from metaboguard.readiness.manifests import build_readiness_bundle
 from metaboguard.readiness.production_feasibility import (
     build_production_feasibility,
@@ -182,6 +182,10 @@ def _run_frozen_pipeline(
         )
         split = build_splits(cohort, SplitConfig(root_seed=1729))
         write_split_artifacts(split, cast(list[object], cohort.labels), cohort_path / "splits")
+        feature_output = run_path / "features" / endpoint_id
+        feature_writer = StreamingFeatureArtifactWriter(
+            feature_output, cohort_path / "cohort_manifest.json"
+        )
         feature_dataset = extract_features(
             dataset,
             cohort.patient_indexes,
@@ -190,12 +194,17 @@ def _run_frozen_pipeline(
             source_split_manifest_sha256=file_sha256(
                 cohort_path / "splits" / "split_manifest.json"
             ),
+            batch_size=25,
+            batch_callback=feature_writer.write_batch,
         )
-        write_feature_artifacts(
-            feature_dataset,
-            run_path / "features" / endpoint_id,
-            cohort_path / "cohort_manifest.json",
-        )
+        if feature_writer.row_count:
+            feature_writer.close()
+        else:
+            write_feature_artifacts(
+                feature_dataset,
+                feature_output,
+                cohort_path / "cohort_manifest.json",
+            )
         build_readiness_bundle(run_path, endpoint_id)
         rows = build_production_feasibility(
             run_path,
