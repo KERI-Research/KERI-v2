@@ -6,6 +6,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import asdict
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +14,12 @@ import pandas as pd  # type: ignore[import-untyped]
 
 from metaboguard.cohort.endpoints import assign_outcomes
 from metaboguard.cohort.index_dates import generate_rolling_index_dates
-from metaboguard.cohort.protocol import ConstructedCohort, EndpointProtocol
+from metaboguard.cohort.protocol import (
+    ConstructedCohort,
+    EndpointProtocol,
+    HorizonLabel,
+    PatientIndex,
+)
 from metaboguard.cohort.validation import validate_constructed_cohort
 from metaboguard.data.canonical import CanonicalDataset
 from metaboguard.data.manifests import config_sha256
@@ -27,8 +33,56 @@ def _hash_parquet_files(directory: Path) -> str:
     return digest.hexdigest()
 
 
+def _date_or_none(value: date | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _patient_index_to_dict(row: PatientIndex) -> dict[str, Any]:
+    """Serialise PatientIndex without dataclasses.asdict() to avoid the
+    Python 3.13 tuple_iterator regression on slots=True frozen dataclasses."""
+    return {
+        "patient_id": row.patient_id,
+        "cohort_class": row.cohort_class,
+        "endpoint_id": row.endpoint_id,
+        "index_date": row.index_date.isoformat(),
+        "index_source": row.index_source,
+        "index_sequence_number": row.index_sequence_number,
+        "preindex_event_dates": [d.isoformat() for d in row.preindex_event_dates],
+        "preindex_measurement_dates": [d.isoformat() for d in row.preindex_measurement_dates],
+        "preindex_encounter_count": row.preindex_encounter_count,
+        "exclusion_reason": row.exclusion_reason,
+    }
+
+
+def _horizon_label_to_dict(row: HorizonLabel) -> dict[str, Any]:
+    """Serialise HorizonLabel without dataclasses.asdict() for the same reason."""
+    return {
+        "patient_id": row.patient_id,
+        "cohort_class": row.cohort_class,
+        "endpoint_id": row.endpoint_id,
+        "index_date": row.index_date.isoformat(),
+        "horizon_years": row.horizon_years,
+        "label_state": row.label_state,
+        "event_date": _date_or_none(row.event_date),
+        "death_date": _date_or_none(row.death_date),
+        "censor_date": _date_or_none(row.censor_date),
+        "days_to_event_or_censor": row.days_to_event_or_censor,
+        "endpoint_definition_version": row.endpoint_definition_version,
+        "outcome_source_condition_code": row.outcome_source_condition_code,
+        "exclusion_reason": row.exclusion_reason,
+    }
+
+
+def _row_to_dict(row: Any) -> dict[str, Any]:
+    if isinstance(row, PatientIndex):
+        return _patient_index_to_dict(row)
+    if isinstance(row, HorizonLabel):
+        return _horizon_label_to_dict(row)
+    return asdict(row)  # type: ignore[arg-type]
+
+
 def _write_rows(rows: Sequence[Any], path: Path) -> None:
-    frame = pd.DataFrame([asdict(row) for row in rows])
+    frame = pd.DataFrame([_row_to_dict(row) for row in rows])
     if frame.empty:
         frame = pd.DataFrame({"patient_id": pd.Series(dtype="string")})
     if not frame.empty:
