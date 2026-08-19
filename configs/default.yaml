@@ -193,4 +193,4 @@ readiness:
         require_lineage_audit: true
         require_patient_isolated_splits: true
         require_temporal_holdout: true
-        allow_simulation_only_model_research: true
+        allow_simulation_only_model_research: false

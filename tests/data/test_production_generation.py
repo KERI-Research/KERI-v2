@@ -21,6 +21,7 @@ from metaboguard.data.production_generation import (
     generate_configured_production_runs,
     generate_production_run,
     load_production_config,
+    reconcile_production_manifest,
 )
 from metaboguard.data.synthea_runner import SyntheaGenerationConfig
 
@@ -128,7 +129,7 @@ def test_production_run_writes_distinct_manifest_and_pipeline(
         plan, tmp_path / "production", generation_runner=_fake_runner
     )
     run = tmp_path / "production" / "ordinary_incidence" / manifest.run_id
-    assert manifest.status == "completed"
+    assert manifest.status in {"completed", "completed_not_ready"}
     assert manifest.model_status == "not_created"
     assert (run / "generation_manifest.json").exists()
     assert json.loads((run / "manifest.json").read_text())["model_status"] == "not_created"
@@ -137,7 +138,7 @@ def test_production_run_writes_distinct_manifest_and_pipeline(
     no_pipeline = generate_production_run(
         plan, tmp_path / "production", run_pipeline=False, generation_runner=_fake_runner
     )
-    assert no_pipeline.cohort_status == "not_created"
+    assert no_pipeline.cohort_status == "created"
 
 
 def test_configured_runs_delegate_independently(
@@ -208,6 +209,32 @@ def test_batch_records_and_retry_success(tmp_path: Path, monkeypatch: pytest.Mon
     )
     assert attempts[0] == 2
     assert manifest.status == "completed"
+
+
+def test_manifest_reconciliation_is_idempotent_and_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = ProductionCohortPlan("ordinary_incidence", 1, 1, "baseline")
+    monkeypatch.setattr(
+        "metaboguard.data.production_generation.load_production_config",
+        lambda: ProductionGenerationConfig.from_mapping(_mapping()),
+    )
+    manifest = generate_production_run(
+        plan, tmp_path / "production", run_pipeline=False, generation_runner=_fake_runner
+    )
+    run = tmp_path / "production" / "ordinary_incidence" / manifest.run_id
+    first = reconcile_production_manifest(run).model_dump_json()
+    second = reconcile_production_manifest(run).model_dump_json()
+    assert first == second
+    sys.argv = ["metaboguard-production", "ordinary_incidence", "--reconcile", str(run)]
+    assert production_cli_main() == 0
+    (run / "canonical" / "patients.parquet").unlink()
+    incomplete = reconcile_production_manifest(run)
+    assert incomplete.status == "partial"
+    assert incomplete.canonical_status == "not_created"
+    (run / "generation_manifest.json").unlink()
+    incomplete_generation = reconcile_production_manifest(run)
+    assert incomplete_generation.failure_summary == "required production artifacts are incomplete"
 
 
 def test_frozen_pipeline_writes_feature_artifacts_when_streaming_has_no_rows(

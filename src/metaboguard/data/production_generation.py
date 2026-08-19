@@ -18,6 +18,7 @@ from metaboguard.data.manifests import CohortClass, file_sha256
 from metaboguard.data.production_manifests import (
     ProductionBatchRecord,
     ProductionRunManifest,
+    load_production_manifest,
     new_production_manifest,
 )
 from metaboguard.data.synthea_runner import (
@@ -230,6 +231,7 @@ def _load_batch_records(
                 status="completed" if payload.get("state") == "complete" else "failed",
                 started_at=started_at,
                 completed_at=started_at if payload.get("state") == "complete" else None,
+                return_code=(int(payload["return_code"]) if "return_code" in payload else None),
                 source_sha256=str(payload.get("raw_sha256", "")),
                 canonical_sha256=str(payload.get("canonical_sha256", "")),
                 failure_stage=None if payload.get("state") == "complete" else "generation",
@@ -240,6 +242,167 @@ def _load_batch_records(
             )
         )
     return records
+
+
+def _existing_files(run_path: Path, relative_paths: list[str]) -> bool:
+    return all((run_path / relative_path).is_file() for relative_path in relative_paths)
+
+
+def _hash_existing_files(run_path: Path, relative_paths: list[str]) -> dict[str, str]:
+    return {
+        relative_path: hashlib.sha256((run_path / relative_path).read_bytes()).hexdigest()
+        for relative_path in relative_paths
+        if (run_path / relative_path).is_file()
+    }
+
+
+def reconcile_production_manifest(
+    run_path: Path, *, failure_summary: str | None = None
+) -> ProductionRunManifest:
+    """Rebuild the top-level manifest from durable generation and stage artifacts."""
+    manifest_path = run_path / "manifest.json"
+    manifest = load_production_manifest(manifest_path)
+    generation_path = run_path / "generation_manifest.json"
+    generation = (
+        json.loads(generation_path.read_text(encoding="utf-8"))
+        if generation_path.is_file()
+        else {}
+    )
+    batch_records = _load_batch_records(run_path, manifest.started_at, manifest.population_target)
+    canonical_files = [
+        "canonical/patients.parquet",
+        "canonical/events.parquet",
+        "canonical/conditions.parquet",
+        "canonical/outcomes.parquet",
+    ]
+    generation_complete = generation.get("state") == "complete"
+    canonical_complete = generation_complete and _existing_files(run_path, canonical_files)
+    endpoint_paths = sorted(
+        path for path in (run_path / "cohort").iterdir() if path.is_dir()
+    ) if (run_path / "cohort").is_dir() else []
+    cohort_complete = bool(endpoint_paths) and all(
+        _existing_files(
+            run_path,
+            [
+                f"cohort/{path.name}/cohort_manifest.json",
+                f"cohort/{path.name}/endpoint_protocol.json",
+                f"cohort/{path.name}/eligible_indexes.parquet",
+            ],
+        )
+        for path in endpoint_paths
+    )
+    split_complete = cohort_complete and all(
+        _existing_files(
+            run_path,
+            [
+                f"cohort/{path.name}/splits/split_manifest.json",
+                f"cohort/{path.name}/splits/split_assignments.parquet",
+            ],
+        )
+        for path in endpoint_paths
+    )
+    feature_complete = split_complete and all(
+        _existing_files(
+            run_path,
+            [
+                f"features/{path.name}/feature_manifest.json",
+                f"features/{path.name}/feature_matrix.parquet",
+                f"features/{path.name}/feature_lineage.parquet",
+            ],
+        )
+        for path in endpoint_paths
+    )
+    readiness_complete = feature_complete and all(
+        (run_path / "readiness" / path.name / "capability_report.json").is_file()
+        and (run_path / "readiness" / path.name / "readiness_manifest.json").is_file()
+        for path in endpoint_paths
+    )
+    feasibility_complete = readiness_complete and (
+        run_path / "feasibility" / "endpoint_feasibility_report.json"
+    ).is_file()
+    manifest.generated_patient_count = int(
+        generation.get("generated_patient_count", generation.get("converted_patient_count", 0))
+    )
+    if manifest.generated_patient_count == 0 and canonical_complete:
+        manifest.generated_patient_count = len(_read_canonical_dir(run_path / "canonical").patients)
+    manifest.batch_records = batch_records
+    manifest.canonical_status = "created" if canonical_complete else "not_created"
+    manifest.cohort_status = "created" if cohort_complete else "not_created"
+    manifest.split_status = "created" if split_complete else "not_created"
+    manifest.feature_status = "created" if feature_complete else "not_created"
+    manifest.readiness_status = "created" if readiness_complete else "not_created"
+    manifest.feasibility_status = "created" if feasibility_complete else "not_created"
+    manifest.artifact_sha256 = _hash_existing_files(
+        run_path,
+        [
+            "generation_manifest.json",
+            *[
+                f"batch_manifests/{record_path.name}"
+                for record_path in sorted((run_path / "batch_manifests").glob("batch_*.json"))
+            ],
+            *canonical_files,
+            *[
+                f"cohort/{path.name}/cohort_manifest.json"
+                for path in endpoint_paths
+            ],
+            *[
+                f"cohort/{path.name}/splits/split_manifest.json"
+                for path in endpoint_paths
+            ],
+            *[
+                f"features/{path.name}/feature_manifest.json"
+                for path in endpoint_paths
+            ],
+            *[
+                f"readiness/{path.name}/readiness_manifest.json"
+                for path in endpoint_paths
+            ],
+            "feasibility/endpoint_feasibility_report.json",
+        ],
+    )
+    readiness_decisions = [
+        json.loads(
+            (run_path / "readiness" / path.name / "capability_report.json").read_text(
+                encoding="utf-8"
+            )
+        ).get("overall_decision")
+        for path in endpoint_paths
+        if (run_path / "readiness" / path.name / "capability_report.json").is_file()
+    ]
+    pipeline_requested = bool(endpoint_paths)
+    all_required_stages_complete = canonical_complete and (
+        not pipeline_requested
+        or all(
+            (
+                cohort_complete,
+                split_complete,
+                feature_complete,
+                readiness_complete,
+                feasibility_complete,
+            )
+        )
+    )
+    if failure_summary is not None:
+        manifest.status = "failed"
+        manifest.failure_summary = failure_summary[:1000]
+    elif not generation_complete or any(record.status == "failed" for record in batch_records):
+        manifest.status = "partial"
+        manifest.failure_summary = manifest.failure_summary or "generation artifacts are incomplete"
+    elif all_required_stages_complete and (
+        manifest.generated_patient_count >= manifest.population_target
+    ):
+        manifest.status = "completed_not_ready" if any(
+            decision in {"not_eligible", "blocked"} for decision in readiness_decisions
+        ) else "completed"
+        manifest.failure_summary = None
+    else:
+        manifest.status = "partial"
+        manifest.failure_summary = (
+            manifest.failure_summary or "required production artifacts are incomplete"
+        )
+    manifest.completed_at = manifest.completed_at or datetime.now(UTC).isoformat()
+    manifest.write(manifest_path)
+    return manifest
 
 
 def generate_production_run(
@@ -301,13 +464,9 @@ def generate_production_run(
         )
         manifest.completed_at = datetime.now(UTC).isoformat()
     except Exception as error:
-        manifest.status = "failed"
-        manifest.failure_summary = str(error)[:1000]
-        manifest.completed_at = datetime.now(UTC).isoformat()
-        manifest.write(manifest_path)
+        reconcile_production_manifest(run_path, failure_summary=str(error))
         raise
-    manifest.write(manifest_path)
-    return manifest
+    return reconcile_production_manifest(run_path)
 
 
 def generate_configured_production_runs(

@@ -11,6 +11,7 @@ from metaboguard.data.production_generation import (
     ProductionCohortPlan,
     generate_production_run,
     load_production_config,
+    reconcile_production_manifest,
 )
 
 
@@ -50,6 +51,11 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Start the configured run. Omit to print the selected immutable plan only.",
     )
+    parser.add_argument(
+        "--reconcile",
+        type=Path,
+        help="Reconcile an existing run directory and rewrite its top-level manifest.",
+    )
     return parser
 
 
@@ -75,6 +81,10 @@ def _selected_plan(
 def main() -> int:
     """Run exactly one configured production cohort class."""
     args = _parser().parse_args()
+    if args.reconcile is not None:
+        manifest = reconcile_production_manifest(args.reconcile)
+        print(manifest.model_dump_json(indent=2))
+        return 0
     config = load_production_config()
     configured_plan = next(
         (item for item in config.plans if item.cohort_class == args.cohort_class), None

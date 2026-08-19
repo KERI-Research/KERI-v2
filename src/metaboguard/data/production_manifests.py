@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, cast
@@ -18,7 +20,7 @@ class ProductionStrictModel(BaseModel):
 
 
 BatchStatus = Literal["created", "running", "completed", "failed", "partial"]
-RunStatus = Literal["created", "running", "completed", "failed", "partial"]
+RunStatus = Literal["created", "running", "completed", "completed_not_ready", "failed", "partial"]
 StageStatus = Literal["not_created", "created", "failed"]
 
 
@@ -62,13 +64,20 @@ class ProductionRunManifest(ProductionStrictModel):
     split_status: StageStatus = "not_created"
     feature_status: StageStatus = "not_created"
     readiness_status: StageStatus = "not_created"
+    feasibility_status: StageStatus = "not_created"
     model_status: Literal["not_created"] = "not_created"
     failure_summary: str | None = None
     generated_patient_count: int = 0
+    artifact_sha256: dict[str, str] = {}
 
     def write(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.model_dump_json(indent=2) + "\n", encoding="utf-8")
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, delete=False
+        ) as temporary:
+            temporary.write(self.model_dump_json(indent=2) + "\n")
+            temporary_path = Path(temporary.name)
+        os.replace(temporary_path, path)
 
 
 def production_run_id(

@@ -131,14 +131,16 @@
       "warning_count": 0
     },
     {
-      "example_ids": [],
+      "example_ids": [
+        "glucose"
+      ],
       "level": "warning",
       "message": "",
       "name": "missingness_rate",
-      "offending_row_count": 0,
+      "offending_row_count": 1,
       "passed": true,
-      "status": "passed",
-      "warning_count": 0
+      "status": "warning",
+      "warning_count": 1
     },
     {
       "example_ids": [],
@@ -151,15 +153,17 @@
       "warning_count": 0
     }
   ],
-  "dataset_sha256": "622886229c52f85043e9e404e9c32183a7592eaad56013bb5e807796aea88cd6",
-  "dropped_loinc_codes": {},
+  "dataset_sha256": "a5fc18b79b5e2f7a7d6eacd54dbb2afe28a9b841a0b7961a7aa181c7505313e1",
+  "dropped_loinc_codes": {
+    "99999-9": 1
+  },
   "passed": true,
   "report_path": "artifacts/validation/dataset_validation_report.json",
   "row_counts": {
-    "conditions": 25791,
-    "events": 420604,
-    "outcomes": 388,
-    "patients": 594
+    "conditions": 2,
+    "events": 7,
+    "outcomes": 2,
+    "patients": 1
   },
   "schema_version": "2.0.0"
 }
