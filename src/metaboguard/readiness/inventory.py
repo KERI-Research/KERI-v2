@@ -85,6 +85,7 @@ def inspect_artifact_inventory(run_path: Path, endpoint_id: str) -> ArtifactInve
     ]
     feature_row_count = 0
     expected_index_count = 0
+    warnings: list[str] = []
     if (features / "feature_matrix.parquet").is_file():
         import pandas as pd  # type: ignore[import-untyped]
 
@@ -101,23 +102,28 @@ def inspect_artifact_inventory(run_path: Path, endpoint_id: str) -> ArtifactInve
         status = "complete"
     else:
         status = "unknown"
-    run_manifest = json.loads((run_path / "manifest.json").read_text(encoding="utf-8"))
+    run_manifest_path = run_path / "manifest.json"
+    run_manifest: dict[str, object] = {}
+    if run_manifest_path.is_file():
+        run_manifest = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    else:
+        warnings.append("run_manifest_missing")
+    if status == "partial":
+        warnings.append(
+            "full_feature_build_runtime_termination_recorded; inspected feature set is partial"
+        )
     return ArtifactInventory(
         run_path=str(run_path),
         endpoint_id=endpoint_id,
-        cohort_class=str(run_manifest["cohort_class"]),
+        cohort_class=str(
+            run_manifest.get("cohort_class") or run_path.parent.name or "unknown"
+        ),
         artifacts=records,
         missing_required=missing_required,
         missing_optional=missing_optional,
         feature_build_status=cast(FeatureBuildStatus, status),
         feature_row_count=feature_row_count,
         expected_eligible_index_count=expected_index_count,
-        operational_warnings=(
-            [
-                "full_feature_build_runtime_termination_recorded; inspected feature set is partial"
-            ]
-            if status == "partial"
-            else []
-        ),
-        simulation_only=bool(run_manifest.get("simulation_only", False)),
+        operational_warnings=warnings,
+        simulation_only=bool(run_manifest.get("simulation_only", True)),
     )

@@ -295,6 +295,28 @@ def test_java_failure_is_wrapped(
         _run_java_batch(config, tmp_path / "raw", 1)
 
 
+def test_java_fatal_error_retries_without_jit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "raw"
+    commands: list[list[str]] = []
+
+    def crash_then_succeed(command: list[str], **_kwargs: object) -> None:
+        commands.append(command)
+        if len(commands) == 1:
+            (raw_dir / "hs_err_pid123.log").write_text("fatal JVM error")
+            raise runner_module.subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(runner_module.subprocess, "run", crash_then_succeed)
+
+    command = _run_java_batch(config, raw_dir, 7)
+
+    assert len(commands) == 2
+    assert "-Xint" in commands[1]
+    assert command == commands[1]
+
+
 @pytest.mark.skipif(
     sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
     reason="Skip on GitHub Actions",

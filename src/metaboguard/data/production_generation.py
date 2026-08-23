@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -197,6 +198,7 @@ def _run_frozen_pipeline(
         ]
     )
     registry = load_endpoint_registry()
+    use_streaming_features = os.name != "nt"
     for endpoint_id in endpoints:
         try:
             endpoint: EndpointProtocol = registry[endpoint_id]
@@ -209,25 +211,43 @@ def _run_frozen_pipeline(
                 split, cast(list[object], cohort.labels), cohort_path / "splits"
             )
             feature_output = run_path / "features" / endpoint_id
-            feature_writer = StreamingFeatureArtifactWriter(
-                feature_output, cohort_path / "cohort_manifest.json"
-            )
-            feature_dataset = extract_features(
-                dataset,
-                cohort.patient_indexes,
-                split.assignments,
-                source_cohort_manifest_sha256=file_sha256(
-                    cohort_path / "cohort_manifest.json"
-                ),
-                source_split_manifest_sha256=file_sha256(
-                    cohort_path / "splits" / "split_manifest.json"
-                ),
-                batch_size=25,
-                batch_callback=feature_writer.write_batch,
-            )
-            if feature_writer.row_count:
-                feature_writer.close()
+            if use_streaming_features:
+                feature_writer = StreamingFeatureArtifactWriter(
+                    feature_output, cohort_path / "cohort_manifest.json"
+                )
+                feature_dataset = extract_features(
+                    dataset,
+                    cohort.patient_indexes,
+                    split.assignments,
+                    source_cohort_manifest_sha256=file_sha256(
+                        cohort_path / "cohort_manifest.json"
+                    ),
+                    source_split_manifest_sha256=file_sha256(
+                        cohort_path / "splits" / "split_manifest.json"
+                    ),
+                    batch_size=25,
+                    batch_callback=feature_writer.write_batch,
+                )
+                if feature_writer.row_count:
+                    feature_writer.close()
+                else:
+                    write_feature_artifacts(
+                        feature_dataset,
+                        feature_output,
+                        cohort_path / "cohort_manifest.json",
+                    )
             else:
+                feature_dataset = extract_features(
+                    dataset,
+                    cohort.patient_indexes,
+                    split.assignments,
+                    source_cohort_manifest_sha256=file_sha256(
+                        cohort_path / "cohort_manifest.json"
+                    ),
+                    source_split_manifest_sha256=file_sha256(
+                        cohort_path / "splits" / "split_manifest.json"
+                    ),
+                )
                 write_feature_artifacts(
                     feature_dataset,
                     feature_output,

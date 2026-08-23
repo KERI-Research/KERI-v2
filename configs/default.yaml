@@ -56,7 +56,7 @@ production_generation:
                 enriched_incidence:
                         enabled: true
                         population_sizes: [25000]
-                        seeds: [20260818]
+                        seeds: [20260818] # Set to current date using the CLI parameter --seed YYYYMMDD
                         augmentation_profile: endpoint_enriched
         endpoints: [type2_diabetes, pancreatic_cancer]
         horizons_years: [1, 3, 5]
@@ -67,7 +67,12 @@ production_generation:
                 batch_population_size: 5000
                 java_executable: "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.20.8-hotspot\\bin\\java.exe"
                 jvm_options:
-                        [-Xmx4g, -XX:+UseSerialGC, -XX:ActiveProcessorCount=4]
+                        [
+                                -Xmx4g,
+                                -XX:+UseSerialGC,
+                                -XX:ActiveProcessorCount=4,
+                                -XX:TieredStopAtLevel=1,
+                        ]
                 continue_on_independent_batch_failure: true
                 require_canonical_validation_before_cohort_build: true
                 require_complete_feature_build_before_readiness: true

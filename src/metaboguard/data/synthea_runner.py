@@ -196,9 +196,11 @@ def _java_version(executable: str) -> str:
 def _run_java_batch(
     config: SyntheaGenerationConfig, raw_dir: Path, seed: int
 ) -> list[str]:
+    raw_dir.mkdir(parents=True, exist_ok=True)
     command = [
         config.java_executable,
         *config.jvm_options,
+        "-XX:ErrorFile=" + (raw_dir / "hs_err_pid%p.log").resolve().as_posix(),
         "-jar",
         str(config.jar_path),
         "-p",
@@ -210,17 +212,46 @@ def _run_java_batch(
         "--exporter.baseDirectory=" + raw_dir.resolve().as_posix(),
         "--exporter.years_of_history=10",
     ]
-    raw_dir.mkdir(parents=True, exist_ok=True)
     log_path = raw_dir / "synthea.log"
+    previous_crash_logs = set(raw_dir.glob("hs_err_pid*.log"))
     try:
         with log_path.open("w", encoding="utf-8") as log:
             subprocess.run(
                 command, check=True, stdout=log, stderr=subprocess.STDOUT, text=True
             )
     except (OSError, subprocess.CalledProcessError) as error:
-        raise SyntheaGenerationError(
-            f"Synthea batch failed: {' '.join(command)}"
-        ) from error
+        crash_logs = set(raw_dir.glob("hs_err_pid*.log")) - previous_crash_logs
+        if isinstance(error, subprocess.CalledProcessError) and crash_logs:
+            safe_command = [
+                config.java_executable,
+                *config.jvm_options,
+                "-Xint",
+                "-XX:ErrorFile="
+                + (raw_dir / "hs_err_pid%p.retry.log").resolve().as_posix(),
+                *command[1 + len(config.jvm_options) + 1 :],
+            ]
+            logger.warning(
+                "Synthea JVM crashed; retrying batch %s without JIT compilation", seed
+            )
+            try:
+                with log_path.open("a", encoding="utf-8") as log:
+                    log.write("\nRetrying after JVM fatal error with -Xint\n")
+                    subprocess.run(
+                        safe_command,
+                        check=True,
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                    )
+                command = safe_command
+            except (OSError, subprocess.CalledProcessError) as retry_error:
+                raise SyntheaGenerationError(
+                    f"Synthea batch failed: {' '.join(safe_command)}"
+                ) from retry_error
+        else:
+            raise SyntheaGenerationError(
+                f"Synthea batch failed: {' '.join(command)}"
+            ) from error
     exported_dir = raw_dir / "csv"
     if exported_dir.is_dir():
         for csv_path in exported_dir.glob("*.csv"):
