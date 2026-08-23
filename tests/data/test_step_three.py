@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import runpy
 import shutil
 import sys
-import os
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
