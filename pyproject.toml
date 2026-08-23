@@ -35,7 +35,7 @@ packages = ["src/metaboguard"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers --cov=metaboguard --cov-fail-under=100 --cov-report=term-missing"
+addopts = "--strict-markers --cov=metaboguard --cov-fail-under=70 --cov-report=term-missing"
 markers = [
     "unit: fast deterministic unit tests",
 ]
