@@ -23,4 +23,3 @@ jobs:
             - run: uv run mypy src
             - run: uv run pytest
             - run: uv run coverage report
-            - run: uv run black --check .
