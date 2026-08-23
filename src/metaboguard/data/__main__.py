@@ -6,11 +6,16 @@ import argparse
 from pathlib import Path
 
 from metaboguard.config import load_config
-from metaboguard.data.synthea_runner import SyntheaGenerationConfig, generate_synthea_cohort
+from metaboguard.data.synthea_runner import (
+    SyntheaGenerationConfig,
+    generate_synthea_cohort,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Generate a simulation-only Synthea cohort.")
+    parser = argparse.ArgumentParser(
+        description="Generate a simulation-only Synthea cohort."
+    )
     parser.add_argument(
         "--cohort-class",
         required=True,
@@ -55,7 +60,9 @@ def main() -> int:
         max_age=int(config["max_age"]),
         output_root=args.output_root,
         java_executable=str(config["java_executable"]),
-        enabled_cancer_sites=tuple(str(site) for site in config["enabled_cancer_sites"]),
+        enabled_cancer_sites=tuple(
+            str(site) for site in config["enabled_cancer_sites"]
+        ),
     )
     manifest = generate_synthea_cohort(generation)
     print(manifest.run_id)

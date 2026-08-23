@@ -10,7 +10,10 @@ from metaboguard.readiness.contracts import (
     LeakageReadinessReport,
 )
 from metaboguard.readiness.features import build_feature_availability
-from metaboguard.readiness.inventory import feature_artifact_dir, inspect_artifact_inventory
+from metaboguard.readiness.inventory import (
+    feature_artifact_dir,
+    inspect_artifact_inventory,
+)
 from metaboguard.readiness.labels import build_label_feasibility
 from metaboguard.readiness.splits import build_split_readiness
 
@@ -66,7 +69,9 @@ def test_inventory_handles_malformed_artifact_manifest(tmp_path: Path) -> None:
     (run / "cohort" / "e" / "cohort_manifest.json").write_text("{")
     inventory = inspect_artifact_inventory(run, "e")
     record = next(
-        item for item in inventory.artifacts if item.path.endswith("cohort_manifest.json")
+        item
+        for item in inventory.artifacts
+        if item.path.endswith("cohort_manifest.json")
     )
     assert record.recorded_sha256 is None
 
@@ -110,8 +115,12 @@ def test_labels_and_splits_missing_horizon(tmp_path: Path) -> None:
     pd.DataFrame({"patient_fingerprint": ["x"], "split": ["train"]}).to_parquet(
         cohort / "split_assignments.parquet"
     )
-    (cohort / "split_manifest.json").write_text(json.dumps({"assignments": {"p": "train"}}))
-    pd.DataFrame({"patient_id": ["p"]}).to_parquet(cohort.parent / "eligible_indexes.parquet")
+    (cohort / "split_manifest.json").write_text(
+        json.dumps({"assignments": {"p": "train"}})
+    )
+    pd.DataFrame({"patient_id": ["p"]}).to_parquet(
+        cohort.parent / "eligible_indexes.parquet"
+    )
     features = tmp_path / "features" / "e"
     features.mkdir(parents=True)
     pd.DataFrame({"patient_id": ["p"]}).to_parquet(features / "feature_matrix.parquet")
@@ -173,17 +182,27 @@ def test_capability_decision_blocked_not_eligible_and_eligible() -> None:
     decisions = build_capability_decisions(inventory, [label], [], [], leakage)
     assert decisions[0].decision == "eligible_for_future_model_research"
     blocked = inventory.model_copy(update={"feature_build_status": "partial"})
-    assert build_capability_decisions(blocked, [label], [], [], leakage)[0].decision == "blocked"
+    assert (
+        build_capability_decisions(blocked, [label], [], [], leakage)[0].decision
+        == "blocked"
+    )
     insufficient = label.model_copy(update={"positive_count": 1})
     assert (
-        build_capability_decisions(inventory, [insufficient], [], [], leakage)[0].decision
+        build_capability_decisions(inventory, [insufficient], [], [], leakage)[
+            0
+        ].decision
         == "not_eligible"
     )
     missing = inventory.model_copy(update={"missing_required": ["manifest.json"]})
-    assert build_capability_decisions(missing, [label], [], [], leakage)[0].decision == "blocked"
+    assert (
+        build_capability_decisions(missing, [label], [], [], leakage)[0].decision
+        == "blocked"
+    )
     leakage_failure = leakage.model_copy(update={"passed": False})
     assert (
-        build_capability_decisions(inventory, [label], [], [], leakage_failure)[0].decision
+        build_capability_decisions(inventory, [label], [], [], leakage_failure)[
+            0
+        ].decision
         == "blocked"
     )
     non_events = label.model_copy(update={"eligible_negative_count": 1})
@@ -191,3 +210,9 @@ def test_capability_decision_blocked_not_eligible_and_eligible() -> None:
         build_capability_decisions(inventory, [non_events], [], [], leakage)[0].decision
         == "not_eligible"
     )
+    synthetic = inventory.model_copy(update={"simulation_only": True})
+    synthetic_decision = build_capability_decisions(
+        synthetic, [label], [], [], leakage
+    )[0]
+    assert synthetic_decision.decision == "prototype_ready"
+    assert synthetic_decision.decision_reasons == ["synthetic_data_only_prototype"]

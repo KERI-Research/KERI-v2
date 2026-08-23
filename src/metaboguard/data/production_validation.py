@@ -44,10 +44,15 @@ def _check(name: str, passed: bool, message: str = "") -> ProductionValidationCh
     )
 
 
-def validate_production_manifest(manifest: ProductionRunManifest) -> ProductionValidationReport:
+def validate_production_manifest(
+    manifest: ProductionRunManifest,
+) -> ProductionValidationReport:
     """Validate identity, stage ordering, failure accounting, and model prohibition."""
     checks = [
-        _check("simulation_only", manifest.simulation_only and manifest.pipeline_rehearsal_only),
+        _check(
+            "simulation_only",
+            manifest.simulation_only and manifest.pipeline_rehearsal_only,
+        ),
         _check("model_status", manifest.model_status == "not_created"),
         _check("cohort_class", _class_is_valid(manifest.cohort_class)),
         _check(
@@ -61,10 +66,15 @@ def validate_production_manifest(manifest: ProductionRunManifest) -> ProductionV
         ),
         _check(
             "stage_order",
-            not (manifest.readiness_status == "created" and manifest.feature_status != "created"),
+            not (
+                manifest.readiness_status == "created"
+                and manifest.feature_status != "created"
+            ),
         ),
     ]
-    return ProductionValidationReport(passed=all(check.passed for check in checks), checks=checks)
+    return ProductionValidationReport(
+        passed=all(check.passed for check in checks), checks=checks
+    )
 
 
 def _class_is_valid(cohort_class: str) -> bool:
@@ -82,13 +92,21 @@ def validate_cohort_table(
     checks: list[ProductionValidationCheck] = []
     has_class = "cohort_class" in frame.columns
     checks.append(_check("cohort_class_column", has_class))
-    values = set(str(value) for value in frame["cohort_class"].dropna()) if has_class else set()
+    values = (
+        set(str(value) for value in frame["cohort_class"].dropna())
+        if has_class
+        else set()
+    )
     single_class = values == {expected_class}
     checks.append(_check("single_expected_cohort_class", single_class))
-    return ProductionValidationReport(passed=all(check.passed for check in checks), checks=checks)
+    return ProductionValidationReport(
+        passed=all(check.passed for check in checks), checks=checks
+    )
 
 
-def validate_recorded_hash(path: Path, expected_sha256: str) -> ProductionValidationCheck:
+def validate_recorded_hash(
+    path: Path, expected_sha256: str
+) -> ProductionValidationCheck:
     """Check one artifact hash without accepting a mismatch."""
     if not path.is_file():
         return _check("artifact_present", False, str(path))

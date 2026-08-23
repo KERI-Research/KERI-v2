@@ -12,7 +12,12 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
 
 
-Decision = Literal["eligible_for_future_model_research", "not_eligible", "blocked"]
+Decision = Literal[
+    "eligible_for_future_model_research",
+    "prototype_ready",
+    "not_eligible",
+    "blocked",
+]
 FeatureBuildStatus = Literal["not_started", "partial", "complete", "unknown"]
 
 

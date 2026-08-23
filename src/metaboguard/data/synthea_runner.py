@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import logging
 import shutil
 import subprocess
 from collections.abc import Callable, Sequence
@@ -15,7 +16,11 @@ from typing import cast
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
 
-from metaboguard.data.augmentation import augment_c_peptide, augment_ca19_9, augment_insulin
+from metaboguard.data.augmentation import (
+    augment_c_peptide,
+    augment_ca19_9,
+    augment_insulin,
+)
 from metaboguard.data.augmentation.common import write_assumptions
 from metaboguard.data.canonical import CanonicalDataset, to_canonical
 from metaboguard.data.capability import build_capability_report
@@ -30,14 +35,77 @@ from metaboguard.data.manifests import (
     new_run_id,
     runtime_metadata,
 )
-from metaboguard.data.schema import ClinicalEvent, ConditionRecord, OutcomeRecord, Patient
+from metaboguard.data.schema import (
+    ClinicalEvent,
+    ConditionRecord,
+    OutcomeRecord,
+    Patient,
+)
 from metaboguard.data.validation import validate
 
 RawBatchGenerator = Callable[[Path, int, int], Sequence[str] | None]
 
+logger = logging.getLogger(__name__)
+
 
 class SyntheaGenerationError(RuntimeError):
     """Raised when a generation precondition or batch contract fails."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        stage: str = "unknown",
+        batch_index: int | None = None,
+        diagnostic: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.stage = stage
+        self.batch_index = batch_index
+        self.diagnostic = diagnostic or message
+
+
+def _failure_diagnostic(error: Exception) -> str:
+    if isinstance(error, SyntheaGenerationError):
+        return error.diagnostic
+    return f"{type(error).__name__}: {error}"
+
+
+def _write_failed_batch_manifest(
+    path: Path,
+    config: SyntheaGenerationConfig,
+    batch_index: int,
+    seed: int,
+    raw_dir: Path,
+    stage: str,
+    error: Exception,
+    command: list[str],
+) -> None:
+    cause = error.__cause__
+    return_code = getattr(cause, "returncode", None)
+    path.write_text(
+        json.dumps(
+            {
+                "batch_index": batch_index,
+                "seed": seed,
+                "target_size": config.batch_size,
+                "state": "failed",
+                "failure_stage": stage,
+                "diagnostic": _failure_diagnostic(error),
+                "generation_command": command,
+                "log_path": str(raw_dir / "synthea.log"),
+                "return_code": return_code,
+                "java_executable": config.java_executable,
+                "jvm_options": list(config.jvm_options),
+                "exporter_base_directory": raw_dir.resolve().as_posix(),
+                "simulation_only": True,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 @dataclass(slots=True)
@@ -60,7 +128,13 @@ class SyntheaGenerationConfig:
     run_id: str | None = None
     manifest_filename: str = "manifest.json"
     population_settings: dict[str, object] = field(default_factory=dict)
-    enabled_cancer_sites: tuple[str, ...] = ("pancreas", "colorectal", "breast", "prostate", "lung")
+    enabled_cancer_sites: tuple[str, ...] = (
+        "pancreas",
+        "colorectal",
+        "breast",
+        "prostate",
+        "lung",
+    )
     batch_generator: RawBatchGenerator | None = None
 
     def __post_init__(self) -> None:
@@ -119,7 +193,9 @@ def _java_version(executable: str) -> str:
     return output[0] if output else "unknown"
 
 
-def _run_java_batch(config: SyntheaGenerationConfig, raw_dir: Path, seed: int) -> list[str]:
+def _run_java_batch(
+    config: SyntheaGenerationConfig, raw_dir: Path, seed: int
+) -> list[str]:
     command = [
         config.java_executable,
         *config.jvm_options,
@@ -138,9 +214,13 @@ def _run_java_batch(config: SyntheaGenerationConfig, raw_dir: Path, seed: int) -
     log_path = raw_dir / "synthea.log"
     try:
         with log_path.open("w", encoding="utf-8") as log:
-            subprocess.run(command, check=True, stdout=log, stderr=subprocess.STDOUT, text=True)
+            subprocess.run(
+                command, check=True, stdout=log, stderr=subprocess.STDOUT, text=True
+            )
     except (OSError, subprocess.CalledProcessError) as error:
-        raise SyntheaGenerationError(f"Synthea batch failed: {' '.join(command)}") from error
+        raise SyntheaGenerationError(
+            f"Synthea batch failed: {' '.join(command)}"
+        ) from error
     exported_dir = raw_dir / "csv"
     if exported_dir.is_dir():
         for csv_path in exported_dir.glob("*.csv"):
@@ -150,10 +230,21 @@ def _run_java_batch(config: SyntheaGenerationConfig, raw_dir: Path, seed: int) -
 
 
 def _validate_raw_export(raw_dir: Path) -> None:
-    required = {"patients", "encounters", "observations", "conditions", "medications", "procedures"}
-    missing = [name for name in sorted(required) if not (raw_dir / f"{name}.csv").is_file()]
+    required = {
+        "patients",
+        "encounters",
+        "observations",
+        "conditions",
+        "medications",
+        "procedures",
+    }
+    missing = [
+        name for name in sorted(required) if not (raw_dir / f"{name}.csv").is_file()
+    ]
     if missing:
-        raise SyntheaGenerationError(f"Raw Synthea export is missing CSV files: {missing}")
+        raise SyntheaGenerationError(
+            f"Raw Synthea export is missing CSV files: {missing}"
+        )
 
 
 def _read_canonical_dir(path: Path) -> CanonicalDataset:
@@ -162,9 +253,11 @@ def _read_canonical_dir(path: Path) -> CanonicalDataset:
         records = []
         for row in frame.to_dict(orient="records"):
             normalized = {
-                key: None
-                if value is None or (isinstance(value, float) and np.isnan(value))
-                else value
+                key: (
+                    None
+                    if value is None or (isinstance(value, float) and np.isnan(value))
+                    else value
+                )
                 for key, value in row.items()
             }
             records.append(model.model_validate(normalized))  # type: ignore[attr-defined]
@@ -177,7 +270,9 @@ def _read_canonical_dir(path: Path) -> CanonicalDataset:
         outcomes=read_models("outcomes", OutcomeRecord),  # type: ignore[arg-type]
         output_dir=path,
         date_normalisation_audit=(
-            json.loads((path / "date_normalisation_audit.json").read_text(encoding="utf-8"))
+            json.loads(
+                (path / "date_normalisation_audit.json").read_text(encoding="utf-8")
+            )
             if (path / "date_normalisation_audit.json").exists()
             else []
         ),
@@ -187,7 +282,9 @@ def _read_canonical_dir(path: Path) -> CanonicalDataset:
             else ""
         ),
         unit_normalisation_audit=(
-            json.loads((path / "unit_normalisation_audit.json").read_text(encoding="utf-8"))
+            json.loads(
+                (path / "unit_normalisation_audit.json").read_text(encoding="utf-8")
+            )
             if (path / "unit_normalisation_audit.json").exists()
             else []
         ),
@@ -248,23 +345,34 @@ def _write_models(dataset: CanonicalDataset, output_dir: Path) -> None:
         if not frame.empty:
             frame = frame.sort_values(columns, kind="mergesort").reset_index(drop=True)
         frame.to_parquet(
-            output_dir / f"{name}.parquet", index=False, engine="pyarrow", compression="zstd"
+            output_dir / f"{name}.parquet",
+            index=False,
+            engine="pyarrow",
+            compression="zstd",
         )
 
 
-def _merge_datasets(datasets: list[CanonicalDataset], output_dir: Path) -> CanonicalDataset:
+def _merge_datasets(
+    datasets: list[CanonicalDataset], output_dir: Path
+) -> CanonicalDataset:
     patients = [patient for dataset in datasets for patient in dataset.patients]
     patient_ids = [patient.patient_id for patient in patients]
     if len(patient_ids) != len(set(patient_ids)):
-        raise SyntheaGenerationError("Duplicate patient IDs detected across Synthea batches")
+        raise SyntheaGenerationError(
+            "Duplicate patient IDs detected across Synthea batches"
+        )
     merged = CanonicalDataset(
         patients=patients,
         events=[event for dataset in datasets for event in dataset.events],
-        conditions=[condition for dataset in datasets for condition in dataset.conditions],
+        conditions=[
+            condition for dataset in datasets for condition in dataset.conditions
+        ],
         outcomes=[outcome for dataset in datasets for outcome in dataset.outcomes],
         dropped_loinc_codes={
             code: sum(dataset.dropped_loinc_codes.get(code, 0) for dataset in datasets)
-            for code in {code for dataset in datasets for code in dataset.dropped_loinc_codes}
+            for code in {
+                code for dataset in datasets for code in dataset.dropped_loinc_codes
+            }
         },
         output_dir=output_dir,
         date_normalisation_audit=[
@@ -346,7 +454,9 @@ def _augment_dataset(
 ) -> tuple[CanonicalDataset, list[dict[str, str]]]:
     current = dataset
     records: list[dict[str, str]] = []
-    for offset, augmenter in enumerate((augment_insulin, augment_c_peptide, augment_ca19_9)):
+    for offset, augmenter in enumerate(
+        (augment_insulin, augment_c_peptide, augment_ca19_9)
+    ):
         module_seed = derive_batch_seed(seed, offset)
         result = augmenter(current, np.random.default_rng(module_seed), module_seed)
         assumptions_path = write_assumptions(result, output_dir)
@@ -355,18 +465,22 @@ def _augment_dataset(
             {
                 "module_name": result.module_name,
                 "module_version": result.module_version,
-                "module_sha256": file_sha256(Path(inspect.getsourcefile(augmenter) or "")),
+                "module_sha256": file_sha256(
+                    Path(inspect.getsourcefile(augmenter) or "")
+                ),
                 "assumptions_sha256": file_sha256(assumptions_path),
             }
         )
     return current, records
 
 
-def generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManifest:
+def _generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManifest:
     """Generate, canonicalize, validate, and manifest one simulation cohort."""
     jar_hash = _verify_jar(config)
     java_version = (
-        "injected-generator" if config.batch_generator else _java_version(config.java_executable)
+        "injected-generator"
+        if config.batch_generator
+        else _java_version(config.java_executable)
     )
     run_id = config.run_id or new_run_id(config.cohort_class, config.root_seed)
     run_dir = config.output_root / config.cohort_class / run_id
@@ -381,7 +495,8 @@ def generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManife
         run_id=run_id,
         root_seed=config.root_seed,
         batch_seeds=[
-            derive_batch_seed(config.root_seed, index) for index in range(config.batch_count)
+            derive_batch_seed(config.root_seed, index)
+            for index in range(config.batch_count)
         ],
         config_hash=config_sha256(config.as_dict()),
         git_sha=git_sha(),
@@ -399,6 +514,7 @@ def generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManife
         ),
         generation_commands=[],
     )
+    manifest.write(run_dir / config.manifest_filename)
     batch_datasets: list[CanonicalDataset] = []
     raw_hashes: list[str] = []
     for batch_index, seed in enumerate(manifest.batch_seeds):
@@ -413,44 +529,79 @@ def generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManife
             manifest.generation_commands.append(["resumed", str(batch_index)])
             continue
         raw_dir.mkdir(parents=True, exist_ok=True)
-        command = (
-            _run_java_batch(config, raw_dir, seed)
-            if config.batch_generator is None
-            else list(config.batch_generator(raw_dir, config.batch_size, seed) or [])
-        )
-        _validate_raw_export(raw_dir)
-        raw_hashes.append(_raw_hash(raw_dir))
-        dataset = to_canonical(raw_dir, source="synthea", source_version=config.synthea_version)
-        validation = validate(dataset)
-        if not validation.passed:
-            raise SyntheaGenerationError(f"Canonical validation failed for batch {batch_index}")
-        if dataset.output_dir is None:
-            raise SyntheaGenerationError("Canonical converter did not return an output directory")
-        shutil.copytree(dataset.output_dir, canonical_dir, dirs_exist_ok=True)
-        batch_datasets.append(_read_canonical_dir(canonical_dir))
-        batch_manifest_path.write_text(
-            json.dumps(
-                {
-                    "batch_index": batch_index,
-                    "seed": seed,
-                    "target_size": config.batch_size,
-                    "raw_sha256": raw_hashes[-1],
-                    "canonical_sha256": dataset.dataset_sha256,
-                    "state": "complete",
-                    "java_executable": config.java_executable,
-                    "jvm_options": list(config.jvm_options),
-                    "exporter_base_directory": raw_dir.resolve().as_posix(),
-                    "return_code": 0,
-                    "simulation_only": True,
-                },
-                indent=2,
-                sort_keys=True,
+        command: list[str] = []
+        stage = "step_1_raw_generation"
+        try:
+            command = (
+                _run_java_batch(config, raw_dir, seed)
+                if config.batch_generator is None
+                else list(
+                    config.batch_generator(raw_dir, config.batch_size, seed) or []
+                )
             )
-            + "\n",
-            encoding="utf-8",
-        )
-        manifest.generation_commands.append(command)
-        shutil.rmtree(raw_dir)
+            stage = "step_2_canonicalization"
+            _validate_raw_export(raw_dir)
+            raw_hashes.append(_raw_hash(raw_dir))
+            dataset = to_canonical(
+                raw_dir, source="synthea", source_version=config.synthea_version
+            )
+            validation = validate(dataset)
+            if not validation.passed:
+                raise SyntheaGenerationError(
+                    f"Canonical validation failed for batch {batch_index}"
+                )
+            if dataset.output_dir is None:
+                raise SyntheaGenerationError(
+                    "Canonical converter did not return an output directory"
+                )
+            shutil.copytree(dataset.output_dir, canonical_dir, dirs_exist_ok=True)
+            batch_datasets.append(_read_canonical_dir(canonical_dir))
+            batch_manifest_path.write_text(
+                json.dumps(
+                    {
+                        "batch_index": batch_index,
+                        "seed": seed,
+                        "target_size": config.batch_size,
+                        "raw_sha256": raw_hashes[-1],
+                        "canonical_sha256": dataset.dataset_sha256,
+                        "state": "complete",
+                        "java_executable": config.java_executable,
+                        "jvm_options": list(config.jvm_options),
+                        "exporter_base_directory": raw_dir.resolve().as_posix(),
+                        "return_code": 0,
+                        "simulation_only": True,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            manifest.generation_commands.append(command)
+            shutil.rmtree(raw_dir)
+        except Exception as error:
+            cause = error
+            if isinstance(error, SyntheaGenerationError):
+                error.stage = stage
+                error.batch_index = batch_index
+            else:
+                error = SyntheaGenerationError(
+                    _failure_diagnostic(error),
+                    stage=stage,
+                    batch_index=batch_index,
+                )
+            _write_failed_batch_manifest(
+                batch_manifest_path,
+                config,
+                batch_index,
+                seed,
+                raw_dir,
+                stage,
+                error,
+                command,
+            )
+            logger.exception("Synthea batch %s failed during %s", batch_index, stage)
+            raise error from cause
     raw_root = run_dir / "raw"
     if raw_root.is_dir() and not any(raw_root.iterdir()):
         raw_root.rmdir()
@@ -467,7 +618,9 @@ def generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManife
         json.dumps(merged.cohort_metadata, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    augmented, augmentation_records = _augment_dataset(merged, config.root_seed, augmentation_root)
+    augmented, augmentation_records = _augment_dataset(
+        merged, config.root_seed, augmentation_root
+    )
     _write_models(augmented, final_canonical_root)
     final_validation = validate(augmented)
     if not final_validation.passed:
@@ -477,7 +630,8 @@ def generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManife
     capability.write(reports_dir / "cohort_capability_report.json")
     reports_dir.mkdir(parents=True, exist_ok=True)
     (reports_dir / "generation_report.json").write_text(
-        json.dumps({"state": capability.state, "simulation_only": True}, indent=2) + "\n",
+        json.dumps({"state": capability.state, "simulation_only": True}, indent=2)
+        + "\n",
         encoding="utf-8",
     )
     shutil.copy2(
@@ -514,10 +668,43 @@ def generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManife
     }
     manifest.state = "complete"
     manifest.cohort_status = (
-        "cohort_insufficient" if len(merged.patients) < config.target_patients else "complete"
+        "cohort_insufficient"
+        if len(merged.patients) < config.target_patients
+        else "complete"
     )
     manifest.write(run_dir / config.manifest_filename)
     return manifest
+
+
+def generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManifest:
+    """Generate, canonicalize, validate, and manifest one simulation cohort."""
+    run_id = config.run_id or new_run_id(config.cohort_class, config.root_seed)
+    manifest_path = (
+        config.output_root / config.cohort_class / run_id / config.manifest_filename
+    )
+    try:
+        return _generate_synthea_cohort(config)
+    except Exception as error:
+        stage = (
+            error.stage
+            if isinstance(error, SyntheaGenerationError)
+            else "step_3_augmentation"
+        )
+        diagnostic = _failure_diagnostic(error)
+        if manifest_path.is_file():
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            payload.update(
+                {"state": "failed", "failure_stage": stage, "diagnostic": diagnostic}
+            )
+            manifest_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+        logger.exception("Synthea generation failed during %s: %s", stage, diagnostic)
+        if isinstance(error, SyntheaGenerationError):
+            raise
+        raise SyntheaGenerationError(
+            diagnostic, stage=stage, diagnostic=diagnostic
+        ) from error
 
 
 if __name__ == "__main__":

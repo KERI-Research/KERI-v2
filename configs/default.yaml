@@ -1,6 +1,6 @@
 project:
         name: metaboguard-v2
-        simulation_mode: true
+        simulation_mode: false
         seed: 1729
         timezone: UTC
 

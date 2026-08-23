@@ -11,7 +11,10 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from metaboguard.config import load_config
-from metaboguard.features.dictionary import get_feature_definition, validate_feature_name
+from metaboguard.features.dictionary import (
+    get_feature_definition,
+    validate_feature_name,
+)
 
 SCHEMA_VERSION = "2.0.0"
 EncounterType = Literal["wellness", "ambulatory", "emergency", "inpatient", "other"]

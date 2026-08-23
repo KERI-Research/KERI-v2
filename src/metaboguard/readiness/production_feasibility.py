@@ -75,14 +75,22 @@ def build_production_feasibility(
 ) -> list[ProductionFeasibilityRow]:
     """Build independent endpoint/horizon feasibility rows without model metrics."""
     manifest = _read_json(run_path / "manifest.json")
-    capability = _read_json(run_path / "readiness" / endpoint_id / "capability_report.json")
+    capability = _read_json(
+        run_path / "readiness" / endpoint_id / "capability_report.json"
+    )
     inventory = inspect_artifact_inventory(run_path, endpoint_id)
     leakage = audit_feature_leakage(run_path, endpoint_id)
-    split_rows = [row.model_dump() for row in build_split_readiness(run_path, endpoint_id)]
+    split_rows = [
+        row.model_dump() for row in build_split_readiness(run_path, endpoint_id)
+    ]
     thresholds = load_config()["readiness"]
     minimum_events = int(thresholds["minimum_events_per_horizon"])
     minimum_nonevents = int(thresholds["minimum_eligible_non_events_per_horizon"])
     minimum_partition = int(thresholds["minimum_events_per_evaluation_partition"])
+    simulation_only = bool(manifest.get("simulation_only", True))
+    pipeline_rehearsal_only = bool(
+        manifest.get("pipeline_rehearsal_only", simulation_only)
+    )
     rows: list[ProductionFeasibilityRow] = []
     for decision in capability["horizon_decisions"]:
         horizon = int(decision["horizon_years"])
@@ -90,7 +98,8 @@ def build_production_feasibility(
         event_passed = int(decision["event_count"]) >= minimum_events
         nonevent_passed = int(decision["eligible_negative_count"]) >= minimum_nonevents
         partition_passed = all(
-            split_positive[split] >= minimum_partition for split in ("test", "temporal_holdout")
+            split_positive[split] >= minimum_partition
+            for split in ("test", "temporal_holdout")
         )
         feature_passed = inventory.feature_build_status == "complete"
         rows.append(
@@ -99,8 +108,8 @@ def build_production_feasibility(
                 run_id=run_id or str(manifest.get("run_id", run_path.name)),
                 endpoint_id=endpoint_id,
                 horizon_years=horizon,
-                simulation_only=True,
-                pipeline_rehearsal_only=True,
+                simulation_only=simulation_only,
+                pipeline_rehearsal_only=pipeline_rehearsal_only,
                 population_target=population_target,
                 generated_patient_count=int(manifest.get("generated_patient_count", 0)),
                 eligible_index_count=inventory.expected_eligible_index_count,
@@ -123,12 +132,16 @@ def build_production_feasibility(
                 partition_event_gate_passed=partition_passed,
                 feature_completeness_gate_passed=feature_passed,
                 leakage_gate_passed=leakage.passed,
-                split_integrity_gate_passed=decision["split_integrity_status"] == "passed",
+                split_integrity_gate_passed=decision["split_integrity_status"]
+                == "passed",
                 readiness_decision=str(decision["decision"]),
                 decision_reasons=list(decision["decision_reasons"]),
                 mechanical_pipeline_capacity=(
                     "sufficient"
-                    if event_passed and nonevent_passed and partition_passed and feature_passed
+                    if event_passed
+                    and nonevent_passed
+                    and partition_passed
+                    and feature_passed
                     else "insufficient"
                 ),
             )
@@ -150,15 +163,20 @@ def write_production_feasibility(
         "report_version": "1.0.0",
         "cohort_class": rows[0].cohort_class if rows else "",
         "run_id": rows[0].run_id if rows else run_path.name,
-        "simulation_only": True,
-        "pipeline_rehearsal_only": True,
-        "clinical_model_research_authorized": False,
+        "simulation_only": rows[0].simulation_only if rows else True,
+        "pipeline_rehearsal_only": rows[0].pipeline_rehearsal_only if rows else True,
+        "prototype_modeling_authorized": rows[0].simulation_only if rows else True,
+        "clinical_model_research_authorized": (
+            not rows[0].simulation_only if rows else False
+        ),
         "model_status": "not_created",
         "rows": [row.model_dump() for row in rows],
         "claim_limitation": (
-            "These are synthetic, pipeline-rehearsal feasibility results. They do not measure "
-            "clinical prevalence, predictive performance, calibration, discrimination, clinical "
-            "utility, or patient-level risk."
+            "These are synthetic prototype feasibility results. They do not measure clinical "
+            "prevalence, predictive performance, calibration, discrimination, clinical utility, "
+            "or patient-level risk."
+            if rows and rows[0].simulation_only
+            else "Clinical claims require approved data and external validation."
         ),
     }
     (output / "endpoint_feasibility_report.json").write_text(

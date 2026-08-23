@@ -16,7 +16,9 @@ class ListOnlyRow:
 def test_constructed_cohort_writes_all_artifacts(
     cohort_dataset, diabetes_endpoint, tmp_path
 ) -> None:
-    cohort = construct_endpoint_cohort(cohort_dataset, diabetes_endpoint, tmp_path / "cohort")
+    cohort = construct_endpoint_cohort(
+        cohort_dataset, diabetes_endpoint, tmp_path / "cohort"
+    )
     assert cohort.labels
     for name in (
         "endpoint_protocol.json",

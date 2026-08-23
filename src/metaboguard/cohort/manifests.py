@@ -47,7 +47,9 @@ def _patient_index_to_dict(row: PatientIndex) -> dict[str, object]:
         "index_source": row.index_source,
         "index_sequence_number": row.index_sequence_number,
         "preindex_event_dates": [d.isoformat() for d in row.preindex_event_dates],
-        "preindex_measurement_dates": [d.isoformat() for d in row.preindex_measurement_dates],
+        "preindex_measurement_dates": [
+            d.isoformat() for d in row.preindex_measurement_dates
+        ],
         "preindex_encounter_count": row.preindex_encounter_count,
         "exclusion_reason": row.exclusion_reason,
     }
@@ -95,7 +97,9 @@ def _write_rows(rows: Sequence[object], path: Path) -> None:
     if not frame.empty:
         sort_columns = _sortable_columns(frame)
         if sort_columns:
-            frame = frame.sort_values(sort_columns, kind="mergesort").reset_index(drop=True)
+            frame = frame.sort_values(sort_columns, kind="mergesort").reset_index(
+                drop=True
+            )
     frame.to_parquet(path, index=False, engine="pyarrow", compression="zstd")
 
 
@@ -122,7 +126,8 @@ def construct_endpoint_cohort(
     report = validate_constructed_cohort(cohort, dataset, endpoint)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "endpoint_protocol.json").write_text(
-        json.dumps(endpoint.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(endpoint.to_dict(), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     _write_rows(indexes, output_dir / "eligible_indexes.parquet")
     _write_rows([], output_dir / "excluded_indexes.parquet")
@@ -134,7 +139,10 @@ def construct_endpoint_cohort(
     state_counts: dict[str, dict[str, int]] = {}
     for label in labels:
         state_counts.setdefault(str(label.horizon_years), {})[label.label_state] = (
-            state_counts.setdefault(str(label.horizon_years), {}).get(label.label_state, 0) + 1
+            state_counts.setdefault(str(label.horizon_years), {}).get(
+                label.label_state, 0
+            )
+            + 1
         )
     summary = {
         "cohort_class": cohort.cohort_class,
@@ -179,7 +187,10 @@ def construct_endpoint_cohort(
         "index_count": len(indexes),
         "excluded_index_count": 0,
         "label_state_counts_by_horizon": state_counts,
-        "washout_impact": {"washout_days": endpoint.washout_days, "excluded_indexes": 0},
+        "washout_impact": {
+            "washout_days": endpoint.washout_days,
+            "excluded_indexes": 0,
+        },
         "root_seed": 0,
         "configuration_hash": config_sha256(endpoint.to_dict()),
         "git_sha": "unavailable",

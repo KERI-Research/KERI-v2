@@ -13,6 +13,6 @@ The configured gates are independent:
 - passed leakage audit;
 - patient-isolated split integrity.
 
-A synthetic run can therefore have sufficient mechanical pipeline capacity while remaining `not_eligible`. Every feasibility report states `simulation_only: true`, `pipeline_rehearsal_only: true`, `clinical_model_research_authorized: false`, and `model_status: not_created`.
+A synthetic run can therefore have sufficient mechanical pipeline capacity and be `prototype_ready` without being clinically authorized. Every feasibility report states `simulation_only: true`, `pipeline_rehearsal_only: true`, `prototype_modeling_authorized: true`, `clinical_model_research_authorized: false`, and `model_status: not_created`.
 
 Feasibility reports do not contain AUROC, AUPRC, Brier score, calibration, accuracy, precision, recall, F1, hazard ratios, risk scores, rankings, or patient-level predictions. They do not measure clinical prevalence, predictive performance, clinical utility, or clinical validity.

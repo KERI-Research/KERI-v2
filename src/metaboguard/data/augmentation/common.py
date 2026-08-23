@@ -36,7 +36,8 @@ def write_assumptions(result: AugmentationResult, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"{result.module_name}_assumptions.json"
     path.write_text(
-        json.dumps(result.assumptions, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(result.assumptions, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     return path
 
@@ -69,7 +70,9 @@ def augment_events(
                 age_at_event=source.age_at_event,
                 encounter_type=source.encounter_type,
                 feature_name=feature_name,
-                value=max(definition.plausible_min, min(definition.plausible_max, value)),
+                value=max(
+                    definition.plausible_min, min(definition.plausible_max, value)
+                ),
                 unit=definition.canonical_unit,
                 is_missing=False,
                 provenance="augmented",

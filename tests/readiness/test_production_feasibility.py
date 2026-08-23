@@ -36,7 +36,7 @@ def test_feasibility_is_horizon_specific_and_synthetic_only(
                         "censored_count": 2,
                         "competing_death_count": 1,
                         "decision": "not_eligible",
-                        "decision_reasons": ["simulation_only_no_clinical_model_research"],
+                        "decision_reasons": ["synthetic_data_only_prototype"],
                         "split_integrity_status": "passed",
                     }
                 ]
@@ -75,7 +75,11 @@ def test_feasibility_is_horizon_specific_and_synthetic_only(
     assert not rows[0].partition_event_gate_passed
     assert rows[0].readiness_decision == "not_eligible"
     write_production_feasibility(run, rows)
-    report = json.loads((run / "feasibility" / "endpoint_feasibility_report.json").read_text())
+    report = json.loads(
+        (run / "feasibility" / "endpoint_feasibility_report.json").read_text()
+    )
     assert report["pipeline_rehearsal_only"] is True
+    assert report["prototype_modeling_authorized"] is True
+    assert report["clinical_model_research_authorized"] is False
     assert report["model_status"] == "not_created"
     assert "do not measure clinical prevalence" in report["claim_limitation"]

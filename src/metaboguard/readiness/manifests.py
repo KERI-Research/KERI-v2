@@ -31,7 +31,9 @@ def build_readiness_bundle(run_path: Path, endpoint_id: str) -> dict[str, object
     splits = build_split_readiness(run_path, endpoint_id)
     leakage = audit_feature_leakage(run_path, endpoint_id)
     decisions = build_capability_decisions(inventory, labels, features, splits, leakage)
-    validation = validate_readiness_bundle(inventory, labels, features, splits, leakage, decisions)
+    validation = validate_readiness_bundle(
+        inventory, labels, features, splits, leakage, decisions
+    )
     for name, rows in (
         ("label_feasibility", labels),
         ("feature_availability", features),
@@ -41,19 +43,35 @@ def build_readiness_bundle(run_path: Path, endpoint_id: str) -> dict[str, object
             out / f"{name}.parquet", index=False
         )
     inventory_path = out / "artifact_inventory.json"
-    inventory_path.write_text(inventory.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    inventory_path.write_text(
+        inventory.model_dump_json(indent=2) + "\n", encoding="utf-8"
+    )
     leakage_path = out / "leakage_readiness.json"
     leakage_path.write_text(leakage.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    overall_decision = (
+        "blocked"
+        if any(item.decision == "blocked" for item in decisions)
+        else (
+            "not_eligible"
+            if any(item.decision == "not_eligible" for item in decisions)
+            else (
+                "prototype_ready"
+                if decisions
+                and all(item.decision == "prototype_ready" for item in decisions)
+                else "eligible_for_future_model_research"
+            )
+        )
+    )
     report = {
         "report_version": "1.0.0",
         "generated_at": "2026-08-16",
         "cohort_class": inventory.cohort_class,
         "endpoint_id": endpoint_id,
         "simulation_only": inventory.simulation_only,
+        "prototype_modeling_authorized": inventory.simulation_only,
+        "clinical_model_research_authorized": not inventory.simulation_only,
         "feature_build_status": inventory.feature_build_status,
-        "overall_decision": "blocked"
-        if any(item.decision == "blocked" for item in decisions)
-        else "not_eligible",
+        "overall_decision": overall_decision,
         "overall_reasons": sorted(
             {reason for item in decisions for reason in item.decision_reasons}
         ),
@@ -62,15 +80,21 @@ def build_readiness_bundle(run_path: Path, endpoint_id: str) -> dict[str, object
         "readiness_validation": validation.model_dump(),
     }
     report_path = out / "capability_report.json"
-    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    report_path.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     validation_path = out / "readiness_validation_report.json"
-    validation_path.write_text(validation.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    validation_path.write_text(
+        validation.model_dump_json(indent=2) + "\n", encoding="utf-8"
+    )
     manifest = {
         "report_version": "1.0.0",
         "cohort_class": inventory.cohort_class,
         "endpoint_id": endpoint_id,
         "readiness_status": "created",
         "readiness_decision": report["overall_decision"],
+        "prototype_modeling_authorized": inventory.simulation_only,
+        "clinical_model_research_authorized": not inventory.simulation_only,
         "feature_build_status": inventory.feature_build_status,
         "artifact_inventory_sha256": _sha(inventory_path),
         "label_feasibility_sha256": _sha(out / "label_feasibility.parquet"),
@@ -78,7 +102,7 @@ def build_readiness_bundle(run_path: Path, endpoint_id: str) -> dict[str, object
         "split_readiness_sha256": _sha(out / "split_readiness.parquet"),
         "leakage_readiness_sha256": _sha(leakage_path),
         "readiness_validation_report_sha256": _sha(validation_path),
-        "simulation_only": True,
+        "simulation_only": inventory.simulation_only,
     }
     (out / "readiness_manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"

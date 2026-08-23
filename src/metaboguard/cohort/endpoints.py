@@ -26,7 +26,11 @@ def _first_future_endpoint(
         if condition.patient_id == patient_index.patient_id
         and condition.onset_date > patient_index.index_date
     ]
-    return min(candidates, key=lambda condition: condition.onset_date) if candidates else None
+    return (
+        min(candidates, key=lambda condition: condition.onset_date)
+        if candidates
+        else None
+    )
 
 
 def _label_one_horizon(
@@ -37,7 +41,9 @@ def _label_one_horizon(
 ) -> HorizonLabel:
     horizon_end = add_years(patient_index.index_date, horizon_years)
     patient = next(
-        value for value in dataset.patients if value.patient_id == patient_index.patient_id
+        value
+        for value in dataset.patients
+        if value.patient_id == patient_index.patient_id
     )
     endpoint_condition = _first_future_endpoint(dataset, patient_index, endpoint)
     endpoint_date = endpoint_condition.onset_date if endpoint_condition else None
@@ -52,7 +58,9 @@ def _label_one_horizon(
         else:
             state = "positive"
             event_date = endpoint_date
-            source_code = endpoint_condition.condition_code if endpoint_condition else None
+            source_code = (
+                endpoint_condition.condition_code if endpoint_condition else None
+            )
             censor_date = None
     elif death_before(death_date, horizon_end, endpoint.use_competing_death_risk):
         state = "competing_death"
@@ -80,9 +88,11 @@ def _label_one_horizon(
         event_date=event_date,
         death_date=death_date,
         censor_date=censor_date,
-        days_to_event_or_censor=(terminal_date - patient_index.index_date).days
-        if terminal_date is not None
-        else None,
+        days_to_event_or_censor=(
+            (terminal_date - patient_index.index_date).days
+            if terminal_date is not None
+            else None
+        ),
         endpoint_definition_version=endpoint.definition_version,
         outcome_source_condition_code=source_code,
     )

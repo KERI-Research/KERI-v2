@@ -34,7 +34,10 @@ def missingness_flags(
 
 
 def density_features(
-    events: list[ClinicalEvent], index_date: date, birth_date: date, window_days: int | None
+    events: list[ClinicalEvent],
+    index_date: date,
+    birth_date: date,
+    window_days: int | None,
 ) -> dict[str, float | int]:
     selected = select_preindex_events(events, index_date, window_days, birth_date)
     dates = {event.event_date for event in selected}
@@ -42,6 +45,8 @@ def density_features(
     return {
         "measurement_days_count": len(dates),
         "measurement_events_count": len(selected),
-        "distinct_features_measured_count": len({event.feature_name for event in selected}),
+        "distinct_features_measured_count": len(
+            {event.feature_name for event in selected}
+        ),
         "measurement_density_per_year": len(dates) / span_years if span_years else 0.0,
     }

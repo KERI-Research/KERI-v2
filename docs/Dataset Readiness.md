@@ -2,7 +2,7 @@
 
 Step 6 is a model-free gate over one immutable synthetic run and endpoint at a time. It inventories canonical, cohort, split, and feature artifacts; counts frozen labels; summarizes feature availability and lineage; and emits endpoint/horizon capability decisions.
 
-The current real smoke run has 1,019 eligible Type 2 diabetes indexes and a complete 1,019-row feature matrix. Readiness classifies this as `feature_build_status: complete`; the overall decision is `not_eligible` because the run is synthetic and its one-year event count remains below threshold.
+The current smoke run has 1,019 eligible Type 2 diabetes indexes and a complete 1,019-row feature matrix. Readiness classifies this as `feature_build_status: complete`; its one-year decision remains `not_eligible` because the event count is below threshold. Synthetic runs that pass the mechanical gates are `prototype_ready`, while clinical model research remains unauthorized.
 
 Readiness is not predictive performance, clinical validity, or permission for patient-level risk inference. Synthetic output is pipeline-rehearsal-only under the current configuration.
 

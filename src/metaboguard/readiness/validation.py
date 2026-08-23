@@ -35,7 +35,9 @@ def validate_readiness_bundle(
         ReadinessCheck(
             name="feature_build_status_truthful",
             level="error",
-            status="failed" if inventory.feature_build_status == "unknown" else "passed",
+            status=(
+                "failed" if inventory.feature_build_status == "unknown" else "passed"
+            ),
             passed=inventory.feature_build_status != "unknown",
             warning_count=0,
             offending_count=int(inventory.feature_build_status == "unknown"),
@@ -59,7 +61,9 @@ def validate_readiness_bundle(
         ReadinessCheck(
             name="partial_feature_build",
             level="warning",
-            status="warning" if inventory.feature_build_status == "partial" else "passed",
+            status=(
+                "warning" if inventory.feature_build_status == "partial" else "passed"
+            ),
             passed=True,
             warning_count=int(inventory.feature_build_status == "partial"),
             offending_count=int(inventory.feature_build_status == "partial"),

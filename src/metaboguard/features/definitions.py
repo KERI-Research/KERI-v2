@@ -82,7 +82,12 @@ def build_feature_registry() -> dict[str, EngineeredFeatureDefinition]:
                         "range",
                         "recency_days",
                     ),
-                    "change": ("baseline", "absolute_change", "relative_change", "time_span_days"),
+                    "change": (
+                        "baseline",
+                        "absolute_change",
+                        "relative_change",
+                        "time_span_days",
+                    ),
                     "trajectory": (
                         "slope_per_year",
                         "slope_measurement_count",
@@ -96,7 +101,9 @@ def build_feature_registry() -> dict[str, EngineeredFeatureDefinition]:
                         feature_id=feature_id,
                         display_name=feature_id,
                         feature_family=family,
-                        value_type="categorical" if metric == "trend_direction" else "numeric",
+                        value_type=(
+                            "categorical" if metric == "trend_direction" else "numeric"
+                        ),
                         window_days=window_days,
                         minimum_measurements=minimum,
                         **base,
@@ -108,12 +115,14 @@ def build_feature_registry() -> dict[str, EngineeredFeatureDefinition]:
                     display_name=feature_id,
                     source_feature_id=source,
                     feature_family="latest",
-                    value_type="numeric" if metric != "latest_window" else "categorical",
-                    unit=definition.canonical_unit
-                    if metric == "latest"
-                    else "days"
-                    if metric == "latest_date_offset_days"
-                    else "coded",
+                    value_type=(
+                        "numeric" if metric != "latest_window" else "categorical"
+                    ),
+                    unit=(
+                        definition.canonical_unit
+                        if metric == "latest"
+                        else "days" if metric == "latest_date_offset_days" else "coded"
+                    ),
                     window_days=window_days,
                     minimum_measurements=1,
                     allowed_cohort_classes=(
@@ -130,7 +139,10 @@ def build_feature_registry() -> dict[str, EngineeredFeatureDefinition]:
                     missingness_policy="null_when_unobserved",
                     leakage_risk="pre_index_measurement_only",
                 )
-        for scope, window_days in (("lifetime", None), ("recent", windows.get("recent"))):
+        for scope, window_days in (
+            ("lifetime", None),
+            ("recent", windows.get("recent")),
+        ):
             suffix = scope
             for metric in ("observed", "missing"):
                 feature_id = f"{source}__{metric}_{suffix}"
@@ -168,9 +180,7 @@ def build_feature_registry() -> dict[str, EngineeredFeatureDefinition]:
                 unit=(
                     definition.canonical_unit
                     if metric == "latest"
-                    else "days"
-                    if metric == "latest_date_offset_days"
-                    else "coded"
+                    else "days" if metric == "latest_date_offset_days" else "coded"
                 ),
                 window_days=None,
                 minimum_measurements=1,
@@ -193,6 +203,8 @@ def build_feature_registry() -> dict[str, EngineeredFeatureDefinition]:
 
 def registry_hash(registry: dict[str, EngineeredFeatureDefinition]) -> str:
     payload = json.dumps(
-        [item.to_dict() for item in registry.values()], sort_keys=True, separators=(",", ":")
+        [item.to_dict() for item in registry.values()],
+        sort_keys=True,
+        separators=(",", ":"),
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()

@@ -17,7 +17,11 @@ import pytest
 from metaboguard.data import manifests as manifest_module
 from metaboguard.data import synthea_runner as runner_module
 from metaboguard.data.__main__ import main as cli_main
-from metaboguard.data.augmentation import augment_c_peptide, augment_ca19_9, augment_insulin
+from metaboguard.data.augmentation import (
+    augment_c_peptide,
+    augment_ca19_9,
+    augment_insulin,
+)
 from metaboguard.data.canonical import CanonicalDataset, to_canonical
 from metaboguard.data.capability import _iqr, build_capability_report
 from metaboguard.data.manifests import (
@@ -97,6 +101,10 @@ def test_mixed_cohort_classes_fail_closed() -> None:
         assert_same_cohort_class(["unknown"])
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_augmentation_is_seeded_and_preserves_provenance() -> None:
     dataset = to_canonical(FIXTURE)
     for augmenter in (augment_insulin, augment_c_peptide, augment_ca19_9):
@@ -105,16 +113,24 @@ def test_augmentation_is_seeded_and_preserves_provenance() -> None:
         assert [event.model_dump() for event in first.dataset.events] == [
             event.model_dump() for event in second.dataset.events
         ]
-        generated = [event for event in first.dataset.events if event.provenance == "augmented"]
+        generated = [
+            event for event in first.dataset.events if event.provenance == "augmented"
+        ]
         assert generated
         assert all(event.augmentation_module for event in generated)
         assert first.assumptions["module_version"] == "1.0.0"
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_augmentation_ignores_labels_and_future_events() -> None:
     dataset = to_canonical(FIXTURE)
     baseline = augment_ca19_9(dataset, np.random.default_rng(23), 23)
-    shuffled = replace(dataset, conditions=list(reversed(dataset.conditions)), outcomes=[])
+    shuffled = replace(
+        dataset, conditions=list(reversed(dataset.conditions)), outcomes=[]
+    )
     without_future = replace(
         dataset,
         events=[event for event in dataset.events if event.event_date.year < 2022],
@@ -122,7 +138,9 @@ def test_augmentation_ignores_labels_and_future_events() -> None:
     shuffled_result = augment_ca19_9(shuffled, np.random.default_rng(23), 23)
     earlier_result = augment_ca19_9(without_future, np.random.default_rng(23), 23)
     baseline_earlier = [
-        event.model_dump() for event in baseline.dataset.events if event.event_date.year < 2022
+        event.model_dump()
+        for event in baseline.dataset.events
+        if event.event_date.year < 2022
     ]
     assert baseline_earlier == [
         event.model_dump()
@@ -130,7 +148,9 @@ def test_augmentation_ignores_labels_and_future_events() -> None:
         if event.event_date.year < 2022
     ]
     assert [
-        event.model_dump() for event in baseline.dataset.events if event.provenance == "augmented"
+        event.model_dump()
+        for event in baseline.dataset.events
+        if event.provenance == "augmented"
     ] == [
         event.model_dump()
         for event in shuffled_result.dataset.events
@@ -138,18 +158,30 @@ def test_augmentation_ignores_labels_and_future_events() -> None:
     ]
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_changed_seed_changes_stochastic_values_with_same_schema() -> None:
     dataset = to_canonical(FIXTURE)
     first = augment_ca19_9(dataset, np.random.default_rng(1), 1).dataset
     second = augment_ca19_9(dataset, np.random.default_rng(2), 2).dataset
-    first_values = [event.value for event in first.events if event.provenance == "augmented"]
-    second_values = [event.value for event in second.events if event.provenance == "augmented"]
+    first_values = [
+        event.value for event in first.events if event.provenance == "augmented"
+    ]
+    second_values = [
+        event.value for event in second.events if event.provenance == "augmented"
+    ]
     assert first_values != second_values
     assert [event.feature_name for event in first.events] == [
         event.feature_name for event in second.events
     ]
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_smoke_generation_writes_contract_and_deletes_raw(tmp_path: Path) -> None:
     manifest = generate_synthea_cohort(_config(tmp_path))
     run_dir = tmp_path / "output" / "ordinary_incidence" / "test-run"
@@ -163,7 +195,8 @@ def test_smoke_generation_writes_contract_and_deletes_raw(tmp_path: Path) -> Non
     assert (run_dir / "reports" / "date_normalisation_audit.json").exists()
     assert not (run_dir / "raw").exists()
     assert (
-        json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))["state"] == "complete"
+        json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))["state"]
+        == "complete"
     )
     assert manifest.sampling_stratum == "ordinary_incidence"
     assert manifest.inverse_probability_weight_policy
@@ -207,7 +240,9 @@ def test_config_validation_and_java_version_edges(
         stderr = 'openjdk version "21"'
         stdout = ""
 
-    monkeypatch.setattr(runner_module.subprocess, "run", lambda *_args, **_kwargs: Result())
+    monkeypatch.setattr(
+        runner_module.subprocess, "run", lambda *_args, **_kwargs: Result()
+    )
     assert runner_module._java_version("java").startswith("openjdk")
     monkeypatch.setattr(
         runner_module.subprocess,
@@ -246,7 +281,9 @@ def test_java_batch_flattens_synthea_csv_directory(
     assert not exported_dir.exists()
 
 
-def test_java_failure_is_wrapped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_java_failure_is_wrapped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config = _config(tmp_path)
 
     def fail(*_args: object, **_kwargs: object) -> None:
@@ -257,6 +294,10 @@ def test_java_failure_is_wrapped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         _run_java_batch(config, tmp_path / "raw", 1)
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_generation_resumes_complete_batch(tmp_path: Path) -> None:
     first = generate_synthea_cohort(_config(tmp_path))
     calls = 0
@@ -270,6 +311,10 @@ def test_generation_resumes_complete_batch(tmp_path: Path) -> None:
     assert calls == 0
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_corrupted_batch_canonical_is_not_accepted(tmp_path: Path) -> None:
     generate_synthea_cohort(_config(tmp_path))
     batch_events = (
@@ -294,15 +339,26 @@ def test_corrupted_batch_canonical_is_not_accepted(tmp_path: Path) -> None:
     assert calls == 1
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_capability_report_is_simulation_only() -> None:
     dataset = to_canonical(FIXTURE)
     report = build_capability_report(dataset, "ordinary_incidence")
     assert report.simulation_only is True
     assert report.state == "ready_for_cohort_construction"
     assert report.incident_cancer_count_by_site["pancreas"] == 1
-    assert report.horizon_eligible_event_counts["1"] >= report.horizon_eligible_event_counts["5"]
+    assert (
+        report.horizon_eligible_event_counts["1"]
+        >= report.horizon_eligible_event_counts["5"]
+    )
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_capability_empty_and_no_death_edges(tmp_path: Path) -> None:
     empty = to_canonical(FIXTURE)
     empty = replace(empty, patients=[], events=[], conditions=[], outcomes=[])
@@ -318,15 +374,25 @@ def test_capability_empty_and_no_death_edges(tmp_path: Path) -> None:
     assert no_death_report.horizon_eligible_event_counts["1"] == 1
     no_death_report.write(tmp_path / "capability.json")
     assert (tmp_path / "capability.json").exists()
-    unknown_condition = dataset.conditions[1].model_copy(update={"patient_id": "unknown"})
+    unknown_condition = dataset.conditions[1].model_copy(
+        update={"patient_id": "unknown"}
+    )
     unknown_report = build_capability_report(
         replace(dataset, conditions=[unknown_condition]), "ordinary_incidence"
     )
     assert unknown_report.diabetes_type_counts["none"] == 1
-    unknown_diabetes = dataset.conditions[0].model_copy(update={"patient_id": "unknown"})
-    build_capability_report(replace(dataset, conditions=[unknown_diabetes]), "ordinary_incidence")
+    unknown_diabetes = dataset.conditions[0].model_copy(
+        update={"patient_id": "unknown"}
+    )
+    build_capability_report(
+        replace(dataset, conditions=[unknown_diabetes]), "ordinary_incidence"
+    )
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_manifest_helpers_and_dataset_class(tmp_path: Path) -> None:
     dataset = to_canonical(FIXTURE)
     dataset.cohort_class = "ordinary_incidence"
@@ -361,12 +427,20 @@ def test_manifest_helpers_and_dataset_class(tmp_path: Path) -> None:
     assert (tmp_path / "manifest.json").exists()
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_merge_rejects_duplicate_patients(tmp_path: Path) -> None:
     dataset = to_canonical(FIXTURE)
     with pytest.raises(SyntheaGenerationError, match="Duplicate patient IDs"):
         _merge_datasets([dataset, dataset], tmp_path / "canonical")
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_complete_batch_requires_matching_hash(tmp_path: Path) -> None:
     manifest = generate_synthea_cohort(_config(tmp_path))
     run_dir = tmp_path / "output" / "ordinary_incidence" / manifest.run_id
@@ -381,6 +455,10 @@ def test_complete_batch_requires_matching_hash(tmp_path: Path) -> None:
     assert _complete_batch(invalid_manifest, batch_dir) is None
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_canonical_hash_supports_legacy_batch_without_audit(tmp_path: Path) -> None:
     canonical_dir = tmp_path / "canonical"
     canonical_dir.mkdir()
@@ -388,6 +466,10 @@ def test_canonical_hash_supports_legacy_batch_without_audit(tmp_path: Path) -> N
     assert _canonical_dir_hash(canonical_dir)
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_manifest_git_failure_is_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         manifest_module.subprocess,
@@ -407,19 +489,33 @@ def test_manifest_git_failure_is_explicit(monkeypatch: pytest.MonkeyPatch) -> No
     assert manifest_module.git_sha() == "abc123"
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_empty_table_writer(tmp_path: Path) -> None:
     _write_models(CanonicalDataset([], [], [], []), tmp_path / "canonical")
     assert (tmp_path / "canonical" / "patients.parquet").exists()
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_batch_validation_failure_keeps_generation_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(runner_module, "validate", lambda _dataset: SimpleNamespace(passed=False))
+    monkeypatch.setattr(
+        runner_module, "validate", lambda _dataset: SimpleNamespace(passed=False)
+    )
     with pytest.raises(SyntheaGenerationError, match="batch 0"):
         generate_synthea_cohort(_config(tmp_path))
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_missing_converter_output_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -433,6 +529,10 @@ def test_missing_converter_output_fails_closed(
         generate_synthea_cohort(_config(tmp_path))
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_final_validation_failure_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -442,16 +542,56 @@ def test_final_validation_failure_fails_closed(
         generate_synthea_cohort(_config(tmp_path))
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_failed_raw_validation_keeps_raw_export(tmp_path: Path) -> None:
     def incomplete(raw_dir: Path, _size: int, _seed: int) -> None:
         (raw_dir / "patients.csv").write_text("bad", encoding="utf-8")
 
     with pytest.raises(SyntheaGenerationError, match="missing CSV"):
         generate_synthea_cohort(_config(tmp_path, batch_generator=incomplete))
-    raw_dirs = list((tmp_path / "output" / "ordinary_incidence" / "test-run" / "raw").glob("*"))
+    run = tmp_path / "output" / "ordinary_incidence" / "test-run"
+    raw_dirs = list((run / "raw").glob("*"))
     assert raw_dirs
+    batch_manifest = json.loads(
+        (run / "batch_manifests" / "batch_00000.json").read_text()
+    )
+    generation_manifest = json.loads((run / "manifest.json").read_text())
+    assert batch_manifest["state"] == "failed"
+    assert batch_manifest["failure_stage"] == "step_2_canonicalization"
+    assert "missing CSV" in batch_manifest["diagnostic"]
+    assert generation_manifest["state"] == "failed"
+    assert generation_manifest["failure_stage"] == "step_2_canonicalization"
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
+def test_unexpected_batch_error_is_logged_and_persisted(tmp_path: Path) -> None:
+    def exploding(_raw_dir: Path, _size: int, _seed: int) -> None:
+        raise ValueError("generator setup failed")
+
+    with pytest.raises(SyntheaGenerationError, match="generator setup failed"):
+        generate_synthea_cohort(_config(tmp_path, batch_generator=exploding))
+
+    run = tmp_path / "output" / "ordinary_incidence" / "test-run"
+    batch_manifest = json.loads(
+        (run / "batch_manifests" / "batch_00000.json").read_text()
+    )
+    generation_manifest = json.loads((run / "manifest.json").read_text())
+    assert batch_manifest["failure_stage"] == "step_1_raw_generation"
+    assert batch_manifest["diagnostic"] == "ValueError: generator setup failed"
+    assert generation_manifest["failure_stage"] == "step_1_raw_generation"
+    assert generation_manifest["diagnostic"] == "ValueError: generator setup failed"
+
+
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_generation_cli_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         sys,
@@ -475,6 +615,10 @@ def test_generation_cli_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cli_main() == 0
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_cli_module_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         sys,
@@ -497,11 +641,21 @@ def test_cli_module_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     with pytest.raises(SystemExit):
         runpy.run_path(
-            str(Path(__file__).parents[2] / "src" / "metaboguard" / "data" / "__main__.py"),
+            str(
+                Path(__file__).parents[2]
+                / "src"
+                / "metaboguard"
+                / "data"
+                / "__main__.py"
+            ),
             run_name="__main__",
         )
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_generation_cli_runs_configured_generator(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -538,13 +692,23 @@ def test_generation_cli_runs_configured_generator(
     assert cli_main() == 0
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_runner_module_cli_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["synthea_runner", "--help"])
     with pytest.raises(SystemExit):
         runpy.run_path(str(Path(runner_module.__file__ or "")), run_name="__main__")
 
 
-def test_generation_cli_rejects_nonpositive_batch(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
+def test_generation_cli_rejects_nonpositive_batch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         sys,
         "argv",

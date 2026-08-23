@@ -22,7 +22,9 @@ def augment_ca19_9(
         MODULE_VERSION,
         "ca_19_9",
         seed,
-        lambda _event, value, generator: 18.0 + 0.01 * value + generator.lognormal(0.0, 0.7),
+        lambda _event, value, generator: 18.0
+        + 0.01 * value
+        + generator.lognormal(0.0, 0.7),
         {
             "causal_assumptions": (
                 "Overlapping weak distributions independent of cancer labels and sites."

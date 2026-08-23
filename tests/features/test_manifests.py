@@ -5,10 +5,15 @@ import pytest
 
 from metaboguard.features.definitions import build_feature_registry
 from metaboguard.features.extraction import FeatureDataset, extract_features
-from metaboguard.features.manifests import StreamingFeatureArtifactWriter, write_feature_artifacts
+from metaboguard.features.manifests import (
+    StreamingFeatureArtifactWriter,
+    write_feature_artifacts,
+)
 
 
-def test_feature_artifacts_update_parent_manifest(feature_dataset, feature_index, tmp_path) -> None:
+def test_feature_artifacts_update_parent_manifest(
+    feature_dataset, feature_index, tmp_path
+) -> None:
     result = extract_features(feature_dataset, [feature_index], {"p1": "train"})
     parent = tmp_path / "cohort"
     parent.mkdir()
@@ -21,10 +26,13 @@ def test_feature_artifacts_update_parent_manifest(feature_dataset, feature_index
             }
         )
     )
-    manifest = write_feature_artifacts(result, parent / "features", parent / "cohort_manifest.json")
+    manifest = write_feature_artifacts(
+        result, parent / "features", parent / "cohort_manifest.json"
+    )
     assert manifest["feature_status"] == "created"
     assert (
-        json.loads((parent / "cohort_manifest.json").read_text())["model_status"] == "not_created"
+        json.loads((parent / "cohort_manifest.json").read_text())["model_status"]
+        == "not_created"
     )
 
 
@@ -59,7 +67,9 @@ def test_streaming_feature_artifacts_update_parent_manifest(
     parent = tmp_path / "cohort"
     parent.mkdir()
     path = parent / "cohort_manifest.json"
-    path.write_text(json.dumps({"split_status": "created", "feature_status": "not_created"}))
+    path.write_text(
+        json.dumps({"split_status": "created", "feature_status": "not_created"})
+    )
     writer = StreamingFeatureArtifactWriter(parent / "features", path)
     writer.write_batch(result)
     manifest = writer.close()
@@ -124,7 +134,9 @@ def test_streaming_feature_artifacts_cover_empty_existing_and_failed_parent(
 
     assert manifest["row_count"] == 2
     assert manifest["validation_passed"] is False
-    assert json.loads(path.read_text(encoding="utf-8"))["feature_status"] == "not_created"
+    assert (
+        json.loads(path.read_text(encoding="utf-8"))["feature_status"] == "not_created"
+    )
 
 
 def test_empty_streaming_writer_close_has_no_parquet_hashes(tmp_path: Path) -> None:

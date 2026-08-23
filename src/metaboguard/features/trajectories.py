@@ -13,7 +13,8 @@ def summaries(values: list[tuple[date, float]]) -> dict[str, float | int | None]
     numbers = np.array([value for _, value in ordered], dtype=float)
     if not len(numbers):
         return {
-            name: None for name in ("mean", "median", "min", "max", "std", "range", "recency_days")
+            name: None
+            for name in ("mean", "median", "min", "max", "std", "range", "recency_days")
         }
     return {
         "mean": float(np.mean(numbers)),
@@ -21,7 +22,9 @@ def summaries(values: list[tuple[date, float]]) -> dict[str, float | int | None]
         "min": float(np.min(numbers)),
         "max": float(np.max(numbers)),
         "std": float(np.std(numbers, ddof=1)) if len(numbers) >= 2 else None,
-        "range": float(np.max(numbers) - np.min(numbers)) if len(numbers) >= 2 else None,
+        "range": (
+            float(np.max(numbers) - np.min(numbers)) if len(numbers) >= 2 else None
+        ),
         "recency_days": 0,
     }
 
@@ -40,7 +43,9 @@ def change(values: list[tuple[date, float]]) -> dict[str, float | int | None]:
     return {
         "baseline": baseline,
         "absolute_change": latest - baseline,
-        "relative_change": (latest - baseline) / abs(baseline) if baseline != 0 else None,
+        "relative_change": (
+            (latest - baseline) / abs(baseline) if baseline != 0 else None
+        ),
         "time_span_days": (ordered[-1][0] - ordered[0][0]).days,
     }
 
@@ -54,7 +59,9 @@ def trajectory(
         return {
             "slope_per_year": None,
             "slope_measurement_count": len(ordered),
-            "slope_time_span_days": (dates[-1] - dates[0]).days if len(dates) >= 2 else None,
+            "slope_time_span_days": (
+                (dates[-1] - dates[0]).days if len(dates) >= 2 else None
+            ),
             "trend_direction": "unknown",
         }
     x = np.array([(item[0] - dates[0]).days / 365.25 for item in ordered], dtype=float)
@@ -64,9 +71,9 @@ def trajectory(
         "slope_per_year": slope,
         "slope_measurement_count": len(ordered),
         "slope_time_span_days": (dates[-1] - dates[0]).days,
-        "trend_direction": "increasing"
-        if slope > epsilon
-        else "decreasing"
-        if slope < -epsilon
-        else "stable",
+        "trend_direction": (
+            "increasing"
+            if slope > epsilon
+            else "decreasing" if slope < -epsilon else "stable"
+        ),
     }

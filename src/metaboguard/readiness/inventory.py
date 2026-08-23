@@ -7,7 +7,11 @@ import json
 from pathlib import Path
 from typing import cast
 
-from metaboguard.readiness.contracts import ArtifactInventory, ArtifactRecord, FeatureBuildStatus
+from metaboguard.readiness.contracts import (
+    ArtifactInventory,
+    ArtifactRecord,
+    FeatureBuildStatus,
+)
 
 
 def _hash(path: Path) -> str:
@@ -73,7 +77,9 @@ def inspect_artifact_inventory(run_path: Path, endpoint_id: str) -> ArtifactInve
     records = [_record(run_path, path, True) for path in required] + [
         _record(run_path, path, False) for path in optional
     ]
-    missing_required = [record.path for record in records if record.required and not record.present]
+    missing_required = [
+        record.path for record in records if record.required and not record.present
+    ]
     missing_optional = [
         record.path for record in records if not record.required and not record.present
     ]
@@ -107,7 +113,9 @@ def inspect_artifact_inventory(run_path: Path, endpoint_id: str) -> ArtifactInve
         feature_row_count=feature_row_count,
         expected_eligible_index_count=expected_index_count,
         operational_warnings=(
-            ["full_feature_build_runtime_termination_recorded; inspected feature set is partial"]
+            [
+                "full_feature_build_runtime_termination_recorded; inspected feature set is partial"
+            ]
             if status == "partial"
             else []
         ),

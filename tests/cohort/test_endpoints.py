@@ -20,7 +20,12 @@ def _index(patient_id: str) -> PatientIndex:
 
 def test_independent_horizon_states(cohort_dataset, diabetes_endpoint) -> None:
     labels = assign_outcomes(
-        [_index("p-positive"), _index("p-competing"), _index("p-censored"), _index("p-negative")],
+        [
+            _index("p-positive"),
+            _index("p-competing"),
+            _index("p-censored"),
+            _index("p-negative"),
+        ],
         cohort_dataset,
         diabetes_endpoint,
     )
@@ -34,7 +39,9 @@ def test_independent_horizon_states(cohort_dataset, diabetes_endpoint) -> None:
 
 
 def test_death_after_endpoint_keeps_positive(cohort_dataset, diabetes_endpoint) -> None:
-    patient = next(value for value in cohort_dataset.patients if value.patient_id == "p-positive")
+    patient = next(
+        value for value in cohort_dataset.patients if value.patient_id == "p-positive"
+    )
     from dataclasses import replace
 
     changed = replace(
@@ -42,7 +49,10 @@ def test_death_after_endpoint_keeps_positive(cohort_dataset, diabetes_endpoint) 
         patients=[patient.model_copy(update={"death_date": date(2022, 1, 1)})],
     )
     label = assign_outcomes([_index("p-positive")], changed, diabetes_endpoint)
-    assert next(item for item in label if item.horizon_years == 3).label_state == "positive"
+    assert (
+        next(item for item in label if item.horizon_years == 3).label_state
+        == "positive"
+    )
 
 
 def test_death_without_endpoint_is_competing(cohort_dataset, diabetes_endpoint) -> None:
@@ -57,4 +67,7 @@ def test_death_without_endpoint_is_competing(cohort_dataset, diabetes_endpoint) 
         ],
     )
     labels = assign_outcomes([_index("p-competing")], changed, diabetes_endpoint)
-    assert next(item for item in labels if item.horizon_years == 3).label_state == "competing_death"
+    assert (
+        next(item for item in labels if item.horizon_years == 3).label_state
+        == "competing_death"
+    )

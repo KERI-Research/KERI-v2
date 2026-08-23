@@ -20,7 +20,15 @@ class ProductionStrictModel(BaseModel):
 
 
 BatchStatus = Literal["created", "running", "completed", "failed", "partial"]
-RunStatus = Literal["created", "running", "completed", "completed_not_ready", "failed", "partial"]
+RunStatus = Literal[
+    "created",
+    "running",
+    "completed",
+    "completed_prototype_ready",
+    "completed_not_ready",
+    "failed",
+    "partial",
+]
 StageStatus = Literal["not_created", "created", "failed"]
 
 
@@ -81,7 +89,10 @@ class ProductionRunManifest(ProductionStrictModel):
 
 
 def production_run_id(
-    cohort_class: CohortClass, population_target: int, seed: int, configuration_sha256: str
+    cohort_class: CohortClass,
+    population_target: int,
+    seed: int,
+    configuration_sha256: str,
 ) -> str:
     """Create a deterministic, class-specific run identity."""
     digest = hashlib.sha256(configuration_sha256.encode("ascii")).hexdigest()[:12]
@@ -99,7 +110,9 @@ def new_production_manifest(
     """Create an immutable production-run manifest before generation starts."""
     configuration_hash = config_sha256(configuration)
     return ProductionRunManifest(
-        run_id=production_run_id(cohort_class, population_target, root_seed, configuration_hash),
+        run_id=production_run_id(
+            cohort_class, population_target, root_seed, configuration_hash
+        ),
         cohort_class=cohort_class,
         population_target=population_target,
         root_seed=root_seed,

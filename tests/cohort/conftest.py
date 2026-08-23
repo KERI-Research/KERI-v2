@@ -26,7 +26,12 @@ def _event(patient_id: str, event_date: date, value: float = 100.0) -> ClinicalE
 @pytest.fixture
 def cohort_dataset() -> CanonicalDataset:
     patients = [
-        Patient(patient_id="p-positive", birth_date=date(1980, 1, 1), sex="male", ethnicity="x"),
+        Patient(
+            patient_id="p-positive",
+            birth_date=date(1980, 1, 1),
+            sex="male",
+            ethnicity="x",
+        ),
         Patient(
             patient_id="p-competing",
             birth_date=date(1980, 1, 1),
@@ -34,14 +39,33 @@ def cohort_dataset() -> CanonicalDataset:
             ethnicity="x",
             death_date=date(2018, 6, 1),
         ),
-        Patient(patient_id="p-censored", birth_date=date(1980, 1, 1), sex="male", ethnicity="x"),
-        Patient(patient_id="p-negative", birth_date=date(1980, 1, 1), sex="female", ethnicity="x"),
-        Patient(patient_id="p-prevalent", birth_date=date(1980, 1, 1), sex="female", ethnicity="x"),
+        Patient(
+            patient_id="p-censored",
+            birth_date=date(1980, 1, 1),
+            sex="male",
+            ethnicity="x",
+        ),
+        Patient(
+            patient_id="p-negative",
+            birth_date=date(1980, 1, 1),
+            sex="female",
+            ethnicity="x",
+        ),
+        Patient(
+            patient_id="p-prevalent",
+            birth_date=date(1980, 1, 1),
+            sex="female",
+            ethnicity="x",
+        ),
     ]
     events = []
     for patient_id in [patient.patient_id for patient in patients]:
-        events.extend([_event(patient_id, date(2015, 1, 1)), _event(patient_id, date(2016, 1, 1))])
-    events.extend([_event("p-positive", date(2019, 1, 1)), _event("p-negative", date(2020, 1, 1))])
+        events.extend(
+            [_event(patient_id, date(2015, 1, 1)), _event(patient_id, date(2016, 1, 1))]
+        )
+    events.extend(
+        [_event("p-positive", date(2019, 1, 1)), _event("p-negative", date(2020, 1, 1))]
+    )
     conditions = [
         ConditionRecord(
             patient_id="p-positive",

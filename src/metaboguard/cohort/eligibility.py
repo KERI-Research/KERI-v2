@@ -6,7 +6,10 @@ from datetime import date
 
 from metaboguard.cohort.protocol import EndpointProtocol, PatientIndex
 from metaboguard.data.canonical import CanonicalDataset
-from metaboguard.data.manifests import CohortClassMismatchError, assert_same_cohort_class
+from metaboguard.data.manifests import (
+    CohortClassMismatchError,
+    assert_same_cohort_class,
+)
 from metaboguard.data.schema import ClinicalEvent, ConditionRecord, Patient
 
 
@@ -22,9 +25,12 @@ def build_eligible_patient_indexes(
 def _condition_matches(condition: ConditionRecord, endpoint: EndpointProtocol) -> bool:
     if endpoint.outcome_family == "diabetes":
         return (
-            condition.category == "diabetes" and condition.diabetes_type == endpoint.diabetes_type
+            condition.category == "diabetes"
+            and condition.diabetes_type == endpoint.diabetes_type
         )
-    return condition.category == "cancer" and condition.cancer_site == endpoint.cancer_site
+    return (
+        condition.category == "cancer" and condition.cancer_site == endpoint.cancer_site
+    )
 
 
 def endpoint_conditions(
@@ -32,7 +38,9 @@ def endpoint_conditions(
 ) -> list[ConditionRecord]:
     """Return canonical conditions belonging to this endpoint only."""
     return [
-        condition for condition in dataset.conditions if _condition_matches(condition, endpoint)
+        condition
+        for condition in dataset.conditions
+        if _condition_matches(condition, endpoint)
     ]
 
 
@@ -49,7 +57,9 @@ def _first_endpoint_date(
 
 def _patient_final_date(dataset: CanonicalDataset, patient_id: str) -> date | None:
     """Return the last valid dated activity, bounded by death."""
-    patient = next(patient for patient in dataset.patients if patient.patient_id == patient_id)
+    patient = next(
+        patient for patient in dataset.patients if patient.patient_id == patient_id
+    )
     dates = (
         [event.event_date for event in dataset.events if event.patient_id == patient_id]
         + [
@@ -57,11 +67,19 @@ def _patient_final_date(dataset: CanonicalDataset, patient_id: str) -> date | No
             for condition in dataset.conditions
             if condition.patient_id == patient_id
         ]
-        + [outcome.outcome_date for outcome in dataset.outcomes if outcome.patient_id == patient_id]
+        + [
+            outcome.outcome_date
+            for outcome in dataset.outcomes
+            if outcome.patient_id == patient_id
+        ]
     )
     if patient.death_date is not None:
         dates.append(patient.death_date)
-    valid = [value for value in dates if patient.death_date is None or value <= patient.death_date]
+    valid = [
+        value
+        for value in dates
+        if patient.death_date is None or value <= patient.death_date
+    ]
     return max(valid) if valid else patient.death_date
 
 
@@ -94,12 +112,18 @@ def _index_reason(
         if endpoint_date is None
         else endpoint_date
     )
-    if endpoint.prevalent_exclusion and endpoint_date is not None and endpoint_date <= index_date:
+    if (
+        endpoint.prevalent_exclusion
+        and endpoint_date is not None
+        and endpoint_date <= index_date
+    ):
         return "prevalent_endpoint"
     if endpoint_date is not None and endpoint_date <= index_date:
         return "index_after_endpoint_onset"
     if endpoint.washout_days and endpoint_date is not None:
-        if endpoint_date <= index_date.fromordinal(index_date.toordinal() + endpoint.washout_days):
+        if endpoint_date <= index_date.fromordinal(
+            index_date.toordinal() + endpoint.washout_days
+        ):
             return f"excluded_{endpoint.endpoint_id}_washout"
     history = history or [
         event
@@ -111,9 +135,14 @@ def _index_reason(
     first_date = min(event.event_date for event in history)
     if (index_date - first_date).days < endpoint.minimum_history_days:
         return "insufficient_history"
-    if len({event.event_date for event in history}) < endpoint.minimum_preindex_encounters:
+    if (
+        len({event.event_date for event in history})
+        < endpoint.minimum_preindex_encounters
+    ):
         return "insufficient_preindex_encounters"
-    measurement_dates = {event.event_date for event in history if event.value is not None}
+    measurement_dates = {
+        event.event_date for event in history if event.value is not None
+    }
     if len(measurement_dates) < endpoint.minimum_preindex_measurements:
         return "insufficient_preindex_measurements"
     return None
