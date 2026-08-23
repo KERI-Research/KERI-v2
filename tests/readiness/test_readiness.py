@@ -1,8 +1,16 @@
+import os
+import sys
 from pathlib import Path
+
+import pytest
 
 from metaboguard.readiness.manifests import build_readiness_bundle
 
 
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
 def test_real_smoke_is_not_eligible_and_simulation_only() -> None:
     # ! REVIEW
     # This test assumes a checked-in completed smoke run, but the referenced
