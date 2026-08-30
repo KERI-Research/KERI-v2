@@ -47,9 +47,7 @@ def _patient_index_to_dict(row: PatientIndex) -> dict[str, object]:
         "index_source": row.index_source,
         "index_sequence_number": row.index_sequence_number,
         "preindex_event_dates": [d.isoformat() for d in row.preindex_event_dates],
-        "preindex_measurement_dates": [
-            d.isoformat() for d in row.preindex_measurement_dates
-        ],
+        "preindex_measurement_dates": [d.isoformat() for d in row.preindex_measurement_dates],
         "preindex_encounter_count": row.preindex_encounter_count,
         "exclusion_reason": row.exclusion_reason,
     }
@@ -97,9 +95,7 @@ def _write_rows(rows: Sequence[object], path: Path) -> None:
     if not frame.empty:
         sort_columns = _sortable_columns(frame)
         if sort_columns:
-            frame = frame.sort_values(sort_columns, kind="mergesort").reset_index(
-                drop=True
-            )
+            frame = frame.sort_values(sort_columns, kind="mergesort").reset_index(drop=True)
     frame.to_parquet(path, index=False, engine="pyarrow", compression="zstd")
 
 
@@ -139,10 +135,7 @@ def construct_endpoint_cohort(
     state_counts: dict[str, dict[str, int]] = {}
     for label in labels:
         state_counts.setdefault(str(label.horizon_years), {})[label.label_state] = (
-            state_counts.setdefault(str(label.horizon_years), {}).get(
-                label.label_state, 0
-            )
-            + 1
+            state_counts.setdefault(str(label.horizon_years), {}).get(label.label_state, 0) + 1
         )
     summary = {
         "cohort_class": cohort.cohort_class,

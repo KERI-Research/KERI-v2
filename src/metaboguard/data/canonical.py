@@ -86,9 +86,7 @@ def _parse_date(value: object) -> date:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00")).date()
 
 
-def convert_unit(
-    feature_name: str, value: float, source_unit: str, canonical_unit: str
-) -> float:
+def convert_unit(feature_name: str, value: float, source_unit: str, canonical_unit: str) -> float:
     """Convert an explicitly supported unit or fail closed on a mismatch."""
     if source_unit == canonical_unit:
         return value
@@ -172,9 +170,7 @@ def _stable_frame(rows: list[dict[str, Any]], columns: list[str]) -> pd.DataFram
     return frame.sort_values(columns, kind="mergesort").reset_index(drop=True)
 
 
-def _write_table(
-    rows: list[Any], columns: list[str], output_dir: Path, name: str
-) -> None:
+def _write_table(rows: list[Any], columns: list[str], output_dir: Path, name: str) -> None:
     data = [{column: getattr(row, column) for column in columns} for row in rows]
     frame = _stable_frame(data, columns)
     frame.to_parquet(
@@ -207,17 +203,11 @@ def to_canonical(
         Patient(
             patient_id=row.Id,
             birth_date=_parse_date(row.BIRTHDATE),
-            sex={"m": "male", "f": "female"}.get(
-                row.GENDER.lower(), row.GENDER.lower()
-            ),
+            sex={"m": "male", "f": "female"}.get(row.GENDER.lower(), row.GENDER.lower()),
             ethnicity=(
-                row.RACE
-                if "RACE" in patients_columns
-                else getattr(row, "ETHNICITY", "unknown")
+                row.RACE if "RACE" in patients_columns else getattr(row, "ETHNICITY", "unknown")
             ),
-            death_date=(
-                _parse_date(row.DEATHDATE) if getattr(row, "DEATHDATE", "") else None
-            ),
+            death_date=(_parse_date(row.DEATHDATE) if getattr(row, "DEATHDATE", "") else None),
         )
         for row in patients_csv.itertuples(index=False)
     ]
@@ -288,16 +278,8 @@ def to_canonical(
                 definition.canonical_unit,
             )
         )
-        provenance = (
-            "augmented"
-            if definition.code.startswith("augmented:")
-            else "synthea_native"
-        )
-        module = (
-            definition.code.removeprefix("augmented:")
-            if provenance == "augmented"
-            else None
-        )
+        provenance = "augmented" if definition.code.startswith("augmented:") else "synthea_native"
+        module = definition.code.removeprefix("augmented:") if provenance == "augmented" else None
         if (
             value is not None
             and source == "synthea"
@@ -310,9 +292,7 @@ def to_canonical(
                 unit_normalisation_audit.append(
                     {
                         "patient_id": row.PATIENT,
-                        "event_identifier": ":".join(
-                            [encounter_id, row.CODE, row.DATE]
-                        ),
+                        "event_identifier": ":".join([encounter_id, row.CODE, row.DATE]),
                         "feature_name": feature_name,
                         "source_code": row.CODE,
                         "original_value": value,
@@ -360,9 +340,7 @@ def to_canonical(
             provenance=cast(Provenance, provenance),
             augmentation_module=module,
         )
-        event_rows.setdefault(
-            (event.patient_id, event.event_date, event.feature_name), event
-        )
+        event_rows.setdefault((event.patient_id, event.event_date, event.feature_name), event)
 
     conditions_has_description = "DESCRIPTION" in conditions_csv.columns
     conditions_has_stop = "STOP" in conditions_csv.columns
@@ -461,17 +439,15 @@ def to_canonical(
     for path in sorted(output_dir.glob("*.parquet")):
         digest.update(path.name.encode("utf-8"))
         digest.update(path.read_bytes())
-    audit_payload = json.dumps(
-        date_normalisation_audit, indent=2, sort_keys=True
-    ).encode("utf-8")
+    audit_payload = json.dumps(date_normalisation_audit, indent=2, sort_keys=True).encode("utf-8")
     audit_path = output_dir / "date_normalisation_audit.json"
     audit_path.write_bytes(audit_payload + b"\n")
     audit_sha256 = hashlib.sha256(audit_path.read_bytes()).hexdigest()
     digest.update(audit_path.name.encode("utf-8"))
     digest.update(audit_path.read_bytes())
-    unit_audit_payload = json.dumps(
-        unit_normalisation_audit, indent=2, sort_keys=True
-    ).encode("utf-8")
+    unit_audit_payload = json.dumps(unit_normalisation_audit, indent=2, sort_keys=True).encode(
+        "utf-8"
+    )
     unit_audit_path = output_dir / "unit_normalisation_audit.json"
     unit_audit_path.write_bytes(unit_audit_payload + b"\n")
     unit_audit_sha256 = hashlib.sha256(unit_audit_path.read_bytes()).hexdigest()

@@ -126,9 +126,7 @@ def validate_constructed_cohort(
     checks.append(_check("competing_death_timing", "error", competing_ids))
     checks.append(_check("endpoint_protocol_version", "error", protocol_ids))
     try:
-        assert_same_cohort_class(
-            [record.cohort_class for record in cohort.patient_indexes]
-        )
+        assert_same_cohort_class([record.cohort_class for record in cohort.patient_indexes])
         class_ids: list[str] = []
     except CohortClassMismatchError:
         class_ids = [record.patient_id for record in cohort.patient_indexes]
@@ -145,13 +143,9 @@ def validate_constructed_cohort(
     minimum_events = int(research_config["minimum_events"])
     minimum_nonevents = int(research_config["minimum_nonevents"])
     for horizon in endpoint.horizon_years:
-        horizon_labels = [
-            label for label in cohort.labels if label.horizon_years == horizon
-        ]
+        horizon_labels = [label for label in cohort.labels if label.horizon_years == horizon]
         positives = sum(label.label_state == "positive" for label in horizon_labels)
-        negatives = sum(
-            label.label_state == "eligible_negative" for label in horizon_labels
-        )
+        negatives = sum(label.label_state == "eligible_negative" for label in horizon_labels)
         warnings.append(
             _check(
                 f"horizon_{horizon}y_minimum_events",

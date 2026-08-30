@@ -15,9 +15,7 @@ from metaboguard.data.manifests import CohortClassMismatchError
 from metaboguard.data.schema import Patient
 
 
-def test_eligibility_excludes_prevalent_patient(
-    cohort_dataset, diabetes_endpoint
-) -> None:
+def test_eligibility_excludes_prevalent_patient(cohort_dataset, diabetes_endpoint) -> None:
     indexes = build_eligible_patient_indexes(cohort_dataset, diabetes_endpoint)
     assert indexes
     assert all(index.patient_id != "p-prevalent" for index in indexes)
@@ -38,15 +36,11 @@ def test_missing_cohort_class_fails_closed(cohort_dataset, diabetes_endpoint) ->
 def test_candidate_reasons(cohort_dataset, diabetes_endpoint) -> None:
     assert _age_on(date(1980, 6, 1), date(1980, 1, 1)) == -1
     assert (
-        classify_index_candidate(
-            cohort_dataset, diabetes_endpoint, "p-positive", date(1980, 1, 1)
-        )
+        classify_index_candidate(cohort_dataset, diabetes_endpoint, "p-positive", date(1980, 1, 1))
         == "under_minimum_age"
     )
     assert (
-        classify_index_candidate(
-            cohort_dataset, diabetes_endpoint, "p-positive", date(2015, 1, 1)
-        )
+        classify_index_candidate(cohort_dataset, diabetes_endpoint, "p-positive", date(2015, 1, 1))
         == "insufficient_history"
     )
 
@@ -89,9 +83,7 @@ def test_patient_final_date_is_bounded_by_death(cohort_dataset) -> None:
         [],
     )
 
-    assert _patient_final_date(with_post_death_activity, "p-competing") == date(
-        2018, 6, 1
-    )
+    assert _patient_final_date(with_post_death_activity, "p-competing") == date(2018, 6, 1)
     assert _patient_final_date(death_only, "p-death-only") == date(2022, 1, 1)
     assert _patient_final_date(no_activity, "p-no-activity") is None
 
@@ -106,22 +98,16 @@ def test_candidate_exclusion_reasons(
         == "under_minimum_age"
     )
     assert (
-        classify_index_candidate(
-            cohort_dataset, diabetes_endpoint, "p-positive", date(2020, 1, 1)
-        )
+        classify_index_candidate(cohort_dataset, diabetes_endpoint, "p-positive", date(2020, 1, 1))
         == "prevalent_endpoint"
     )
     assert (
-        classify_index_candidate(
-            cohort_dataset, diabetes_endpoint, "p-competing", date(2019, 1, 1)
-        )
+        classify_index_candidate(cohort_dataset, diabetes_endpoint, "p-competing", date(2019, 1, 1))
         == "index_after_death"
     )
     no_prevalent = replace(diabetes_endpoint, prevalent_exclusion=False)
     assert (
-        classify_index_candidate(
-            cohort_dataset, no_prevalent, "p-positive", date(2020, 1, 1)
-        )
+        classify_index_candidate(cohort_dataset, no_prevalent, "p-positive", date(2020, 1, 1))
         == "index_after_endpoint_onset"
     )
     assert (
@@ -132,21 +118,15 @@ def test_candidate_exclusion_reasons(
     )
     sparse = replace(
         cohort_dataset,
-        events=[
-            event for event in cohort_dataset.events if event.patient_id != "p-negative"
-        ],
+        events=[event for event in cohort_dataset.events if event.patient_id != "p-negative"],
     )
     assert (
-        classify_index_candidate(
-            sparse, diabetes_endpoint, "p-negative", date(2016, 1, 1)
-        )
+        classify_index_candidate(sparse, diabetes_endpoint, "p-negative", date(2016, 1, 1))
         == "insufficient_history"
     )
     one_measurement = replace(
         cohort_dataset,
-        events=[
-            event for event in cohort_dataset.events if event.patient_id != "p-negative"
-        ]
+        events=[event for event in cohort_dataset.events if event.patient_id != "p-negative"]
         + [
             cohort_dataset.events[0].model_copy(
                 update={"patient_id": "p-negative", "event_date": date(2015, 1, 1)}
@@ -162,15 +142,11 @@ def test_candidate_exclusion_reasons(
         ],
     )
     assert (
-        classify_index_candidate(
-            one_measurement, diabetes_endpoint, "p-negative", date(2016, 1, 1)
-        )
+        classify_index_candidate(one_measurement, diabetes_endpoint, "p-negative", date(2016, 1, 1))
         == "insufficient_preindex_measurements"
     )
     few_encounters = replace(diabetes_endpoint, minimum_preindex_encounters=3)
     assert (
-        classify_index_candidate(
-            cohort_dataset, few_encounters, "p-positive", date(2016, 1, 1)
-        )
+        classify_index_candidate(cohort_dataset, few_encounters, "p-positive", date(2016, 1, 1))
         == "insufficient_preindex_encounters"
     )

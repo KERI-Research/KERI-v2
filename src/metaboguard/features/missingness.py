@@ -45,8 +45,6 @@ def density_features(
     return {
         "measurement_days_count": len(dates),
         "measurement_events_count": len(selected),
-        "distinct_features_measured_count": len(
-            {event.feature_name for event in selected}
-        ),
+        "distinct_features_measured_count": len({event.feature_name for event in selected}),
         "measurement_density_per_year": len(dates) / span_years if span_years else 0.0,
     }

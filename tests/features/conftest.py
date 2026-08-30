@@ -9,9 +9,7 @@ from metaboguard.data.schema import ClinicalEvent, Patient
 
 @pytest.fixture
 def feature_dataset() -> CanonicalDataset:
-    patient = Patient(
-        patient_id="p1", birth_date=date(1980, 1, 1), sex="male", ethnicity="x"
-    )
+    patient = Patient(patient_id="p1", birth_date=date(1980, 1, 1), sex="male", ethnicity="x")
     events = [
         ClinicalEvent(
             patient_id="p1",

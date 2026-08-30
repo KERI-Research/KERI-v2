@@ -80,16 +80,10 @@ def _dataset_hash(dataset: CanonicalDataset) -> str:
         return dataset.dataset_sha256
     payload = json.dumps(
         {
-            "patients": [
-                patient.model_dump(mode="json") for patient in dataset.patients
-            ],
+            "patients": [patient.model_dump(mode="json") for patient in dataset.patients],
             "events": [event.model_dump(mode="json") for event in dataset.events],
-            "conditions": [
-                condition.model_dump(mode="json") for condition in dataset.conditions
-            ],
-            "outcomes": [
-                outcome.model_dump(mode="json") for outcome in dataset.outcomes
-            ],
+            "conditions": [condition.model_dump(mode="json") for condition in dataset.conditions],
+            "outcomes": [outcome.model_dump(mode="json") for outcome in dataset.outcomes],
         },
         sort_keys=True,
     ).encode("utf-8")
@@ -107,15 +101,9 @@ def validate(dataset: CanonicalDataset) -> ValidationReport:
         _result(
             "referential_integrity",
             "error",
-            [
-                item.patient_id
-                for item in dataset.events
-                if item.patient_id not in patient_ids
-            ]
+            [item.patient_id for item in dataset.events if item.patient_id not in patient_ids]
             + [
-                item.patient_id
-                for item in dataset.conditions
-                if item.patient_id not in patient_ids
+                item.patient_id for item in dataset.conditions if item.patient_id not in patient_ids
             ],
         )
     )
@@ -134,8 +122,7 @@ def validate(dataset: CanonicalDataset) -> ValidationReport:
         if condition.patient_id in patient_by_id
         and (
             condition.onset_date < patient_by_id[condition.patient_id].birth_date
-            or condition.onset_date
-            > (patient_by_id[condition.patient_id].death_date or today)
+            or condition.onset_date > (patient_by_id[condition.patient_id].death_date or today)
         )
     )
     checks.append(_result("chronology", "error", chronology_ids))
@@ -155,10 +142,7 @@ def validate(dataset: CanonicalDataset) -> ValidationReport:
         if patient is None:
             continue
         expected = (event.event_date - patient.birth_date).days / 365.2425
-        if (
-            abs(event.age_at_event - expected)
-            > settings["age_tolerance_days"] / 365.2425
-        ):
+        if abs(event.age_at_event - expected) > settings["age_tolerance_days"] / 365.2425:
             age_ids.append(event.patient_id)
     checks.append(_result("age_at_event", "error", age_ids))
     range_ids = []
@@ -173,9 +157,7 @@ def validate(dataset: CanonicalDataset) -> ValidationReport:
             range_ids.append(event.patient_id)
     checks.append(_result("plausible_ranges", "error", range_ids))
     missing_ids = [
-        event.patient_id
-        for event in dataset.events
-        if event.is_missing != (event.value is None)
+        event.patient_id for event in dataset.events if event.is_missing != (event.value is None)
     ]
     checks.append(_result("missingness_consistency", "error", missing_ids))
     unit_ids = [
@@ -219,16 +201,12 @@ def validate(dataset: CanonicalDataset) -> ValidationReport:
         )
     )
     patient_id_counts = Counter(patient.patient_id for patient in dataset.patients)
-    duplicate_ids = [
-        patient_id for patient_id, count in patient_id_counts.items() if count > 1
-    ]
+    duplicate_ids = [patient_id for patient_id, count in patient_id_counts.items() if count > 1]
     checks.append(_result("unique_patient_ids", "error", duplicate_ids))
 
     encounter_counts: dict[str, int] = {}
     for event in dataset.events:
-        encounter_counts[event.patient_id] = (
-            encounter_counts.get(event.patient_id, 0) + 1
-        )
+        encounter_counts[event.patient_id] = encounter_counts.get(event.patient_id, 0) + 1
     checks.append(
         _result(
             "minimum_encounters",
@@ -236,8 +214,7 @@ def validate(dataset: CanonicalDataset) -> ValidationReport:
             [
                 patient.patient_id
                 for patient in dataset.patients
-                if encounter_counts.get(patient.patient_id, 0)
-                < settings["minimum_encounters"]
+                if encounter_counts.get(patient.patient_id, 0) < settings["minimum_encounters"]
             ],
         )
     )

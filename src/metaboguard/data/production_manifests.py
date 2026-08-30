@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import tempfile
 from datetime import UTC, datetime
@@ -13,6 +14,8 @@ from typing import Literal, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 from metaboguard.data.manifests import CohortClass, config_sha256
+
+logger = logging.getLogger(__name__)
 
 
 class ProductionStrictModel(BaseModel):
@@ -110,9 +113,7 @@ def new_production_manifest(
     """Create an immutable production-run manifest before generation starts."""
     configuration_hash = config_sha256(configuration)
     return ProductionRunManifest(
-        run_id=production_run_id(
-            cohort_class, population_target, root_seed, configuration_hash
-        ),
+        run_id=production_run_id(cohort_class, population_target, root_seed, configuration_hash),
         cohort_class=cohort_class,
         population_target=population_target,
         root_seed=root_seed,
@@ -125,7 +126,10 @@ def new_production_manifest(
 
 def load_production_manifest(path: Path) -> ProductionRunManifest:
     """Load and strictly validate a production manifest."""
-    return ProductionRunManifest.model_validate_json(path.read_text(encoding="utf-8"))
+    logger.info("Loading production manifest from %s", path)
+    payload = path.read_text(encoding="utf-8")
+    logger.info("Production manifest loaded: %s", path.name)
+    return ProductionRunManifest.model_validate_json(payload)
 
 
 def manifest_hash(path: Path) -> str:

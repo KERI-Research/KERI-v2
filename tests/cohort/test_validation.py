@@ -23,9 +23,7 @@ def _index(patient_id: str, index_date: date = date(2016, 1, 1)) -> PatientIndex
 def test_constructed_validation_passes(cohort_dataset, diabetes_endpoint) -> None:
     indexes = [_index("p-positive")]
     labels = assign_outcomes(indexes, cohort_dataset, diabetes_endpoint)
-    cohort = ConstructedCohort(
-        "ordinary_incidence", diabetes_endpoint, indexes, [], labels, "hash"
-    )
+    cohort = ConstructedCohort("ordinary_incidence", diabetes_endpoint, indexes, [], labels, "hash")
     report = validate_constructed_cohort(cohort, cohort_dataset, diabetes_endpoint)
     assert report.passed
     assert report.warnings
@@ -34,20 +32,14 @@ def test_constructed_validation_passes(cohort_dataset, diabetes_endpoint) -> Non
     assert all(warning.warning_count == 1 for warning in report.warnings)
 
 
-def test_constructed_validation_catches_future_history(
-    cohort_dataset, diabetes_endpoint
-) -> None:
+def test_constructed_validation_catches_future_history(cohort_dataset, diabetes_endpoint) -> None:
     bad = replace(_index("p-positive"), preindex_event_dates=(date(2020, 1, 1),))
-    cohort = ConstructedCohort(
-        "ordinary_incidence", diabetes_endpoint, [bad], [], [], "hash"
-    )
+    cohort = ConstructedCohort("ordinary_incidence", diabetes_endpoint, [bad], [], [], "hash")
     report = validate_constructed_cohort(cohort, cohort_dataset, diabetes_endpoint)
     assert not report.passed
     assert (
         next(
-            check
-            for check in report.checks
-            if check.name == "history_on_or_before_index"
+            check for check in report.checks if check.name == "history_on_or_before_index"
         ).offending_row_count
         == 1
     )

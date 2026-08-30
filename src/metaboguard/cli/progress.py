@@ -47,9 +47,7 @@ class ProgressReporter:
         bar = "#" * filled + "-" * (self._bar_width - filled)
         eta = self._format_eta(fraction, time.monotonic() - self._start)
         prefix = f"{self._label} " if self._label else ""
-        line = (
-            f"\r{prefix}[{bar}] {self._completed}/{self._total} ({fraction:.0%}) {eta}"
-        )
+        line = f"\r{prefix}[{bar}] {self._completed}/{self._total} ({fraction:.0%}) {eta}"
         if suffix:
             line += f" {suffix}"
         width = shutil.get_terminal_size(fallback=(80, 24)).columns

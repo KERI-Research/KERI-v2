@@ -70,9 +70,7 @@ def augment_events(
                 age_at_event=source.age_at_event,
                 encounter_type=source.encounter_type,
                 feature_name=feature_name,
-                value=max(
-                    definition.plausible_min, min(definition.plausible_max, value)
-                ),
+                value=max(definition.plausible_min, min(definition.plausible_max, value)),
                 unit=definition.canonical_unit,
                 is_missing=False,
                 provenance="augmented",

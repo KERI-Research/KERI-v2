@@ -101,9 +101,7 @@ def build_feature_registry() -> dict[str, EngineeredFeatureDefinition]:
                         feature_id=feature_id,
                         display_name=feature_id,
                         feature_family=family,
-                        value_type=(
-                            "categorical" if metric == "trend_direction" else "numeric"
-                        ),
+                        value_type=("categorical" if metric == "trend_direction" else "numeric"),
                         window_days=window_days,
                         minimum_measurements=minimum,
                         **base,
@@ -115,13 +113,13 @@ def build_feature_registry() -> dict[str, EngineeredFeatureDefinition]:
                     display_name=feature_id,
                     source_feature_id=source,
                     feature_family="latest",
-                    value_type=(
-                        "numeric" if metric != "latest_window" else "categorical"
-                    ),
+                    value_type=("numeric" if metric != "latest_window" else "categorical"),
                     unit=(
                         definition.canonical_unit
                         if metric == "latest"
-                        else "days" if metric == "latest_date_offset_days" else "coded"
+                        else "days"
+                        if metric == "latest_date_offset_days"
+                        else "coded"
                     ),
                     window_days=window_days,
                     minimum_measurements=1,
@@ -180,7 +178,9 @@ def build_feature_registry() -> dict[str, EngineeredFeatureDefinition]:
                 unit=(
                     definition.canonical_unit
                     if metric == "latest"
-                    else "days" if metric == "latest_date_offset_days" else "coded"
+                    else "days"
+                    if metric == "latest_date_offset_days"
+                    else "coded"
                 ),
                 window_days=None,
                 minimum_measurements=1,

@@ -10,6 +10,8 @@ Steps 1 through 6 are complete, and the Step 7 production-generation and endpoin
 
 The next operational work is executing the configured production-scale synthetic cohort plans and reviewing endpoint-specific feasibility reports. This work must preserve ordinary and enriched cohort separation and must not begin modelling, scoring, or prediction.
 
+Step 8 synthetic model-feasibility experiments are now supported under explicit professor approval through `metaboguard-model-feasibility`, with outputs written to `artifacts/model_feasibility/` and permanently tagged simulation-only, non-diagnostic, and prohibited for clinical use.
+
 ## Development
 
 This project uses `uv` for reproducible Python environments.

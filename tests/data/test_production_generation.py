@@ -131,15 +131,16 @@ def test_production_run_writes_distinct_manifest_and_pipeline(
         lambda: ProductionGenerationConfig.from_mapping(_mapping()),
     )
     manifest = generate_production_run(
-        plan, tmp_path / "production", generation_runner=_fake_runner
+        plan,
+        tmp_path / "production",
+        run_pipeline=True,
+        generation_runner=_fake_runner,
     )
     run = tmp_path / "production" / "ordinary_incidence" / manifest.run_id
     assert manifest.status == "completed_not_ready"
     assert manifest.model_status == "not_created"
     assert (run / "generation_manifest.json").exists()
-    assert (
-        json.loads((run / "manifest.json").read_text())["model_status"] == "not_created"
-    )
+    assert json.loads((run / "manifest.json").read_text())["model_status"] == "not_created"
     assert (run / "readiness").exists()
     assert (run / "feasibility" / "endpoint_feasibility_report.json").exists()
     no_pipeline = generate_production_run(
@@ -177,9 +178,7 @@ def test_failed_generation_is_persisted_and_disabled_config_fails(
         raise RuntimeError("generator failed")
 
     with pytest.raises(RuntimeError, match="generator failed"):
-        generate_production_run(
-            plan, tmp_path / "production", generation_runner=failed_runner
-        )
+        generate_production_run(plan, tmp_path / "production", generation_runner=failed_runner)
     run = next((tmp_path / "production" / "ordinary_incidence").iterdir())
     failed_manifest = json.loads((run / "manifest.json").read_text())
     assert failed_manifest["status"] == "failed"
@@ -198,15 +197,11 @@ def test_failed_generation_is_persisted_and_disabled_config_fails(
     sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
     reason="Skip on GitHub Actions",
 )
-def test_batch_records_and_retry_success(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_batch_records_and_retry_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     batch_root = tmp_path / "batch_manifests"
     batch_root.mkdir()
     (batch_root / "batch_00000.json").write_text(
-        json.dumps(
-            {"batch_index": 0, "seed": 1, "state": "complete", "raw_sha256": "r"}
-        ),
+        json.dumps({"batch_index": 0, "seed": 1, "state": "complete", "raw_sha256": "r"}),
         encoding="utf-8",
     )
     (batch_root / "batch_00001.json").write_text(
@@ -272,16 +267,33 @@ def test_manifest_reconciliation_is_idempotent_and_fails_closed(
     assert first == second
     sys.argv = ["metaboguard-production", "ordinary_incidence", "--reconcile", str(run)]
     assert production_cli_main() == 0
+    batch_root = run / "batch_manifests"
+    batch_root.mkdir()
+    (batch_root / "batch_00000.json").write_text(
+        json.dumps(
+            {
+                "batch_index": 0,
+                "seed": 1,
+                "state": "failed",
+                "failure_stage": "canonical_validation",
+                "diagnostic": "missing required canonical artifact",
+            }
+        ),
+        encoding="utf-8",
+    )
+    failed = reconcile_production_manifest(run)
+    assert failed.status == "failed"
+    assert failed.failure_summary == (
+        "Batch 0 failed during canonical_validation: missing required canonical artifact"
+    )
+    (batch_root / "batch_00000.json").unlink()
     (run / "canonical" / "patients.parquet").unlink()
     incomplete = reconcile_production_manifest(run)
     assert incomplete.status == "partial"
     assert incomplete.canonical_status == "not_created"
     (run / "generation_manifest.json").unlink()
     incomplete_generation = reconcile_production_manifest(run)
-    assert (
-        incomplete_generation.failure_summary
-        == "required production artifacts are incomplete"
-    )
+    assert incomplete_generation.failure_summary == "generation artifacts are incomplete"
 
 
 def test_frozen_pipeline_writes_feature_artifacts_when_streaming_has_no_rows(
@@ -297,9 +309,7 @@ def test_frozen_pipeline_writes_feature_artifacts_when_streaming_has_no_rows(
     split = SimpleNamespace(assignments={})
     calls: list[Path] = []
 
-    def construct_cohort(
-        _dataset: object, _endpoint: object, path: Path, _sha: str
-    ) -> object:
+    def construct_cohort(_dataset: object, _endpoint: object, path: Path, _sha: str) -> object:
         path.mkdir(parents=True)
         (path / "cohort_manifest.json").write_text(
             json.dumps({"feature_status": "not_created"}), encoding="utf-8"
@@ -332,9 +342,7 @@ def test_frozen_pipeline_writes_feature_artifacts_when_streaming_has_no_rows(
         "metaboguard.data.production_generation.write_split_artifacts",
         lambda *_args: None,
     )
-    monkeypatch.setattr(
-        "metaboguard.data.production_generation.file_sha256", lambda _path: "sha"
-    )
+    monkeypatch.setattr("metaboguard.data.production_generation.file_sha256", lambda _path: "sha")
     monkeypatch.setattr(
         "metaboguard.data.production_generation.extract_features",
         lambda *_args, **_kwargs: SimpleNamespace(rows=[], lineage=[], registry={}),
@@ -382,9 +390,7 @@ def test_frozen_pipeline_logs_endpoint_failure(
         lambda *_args: (_ for _ in ()).throw(ValueError("cohort construction failed")),
     )
 
-    with pytest.raises(
-        RuntimeError, match="Steps 4-6 failed for endpoint type2_diabetes"
-    ):
+    with pytest.raises(RuntimeError, match="Steps 4-6 failed for endpoint type2_diabetes"):
         _run_frozen_pipeline(run_path, ("type2_diabetes",), "generation-sha")
 
 
@@ -407,9 +413,7 @@ def test_production_cli_previews_or_executes_one_class(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     config = ProductionGenerationConfig.from_mapping(_mapping())
-    monkeypatch.setattr(
-        "metaboguard.data.production_cli.load_production_config", lambda: config
-    )
+    monkeypatch.setattr("metaboguard.data.production_cli.load_production_config", lambda: config)
     monkeypatch.setattr(sys, "argv", ["metaboguard-production", "ordinary_incidence"])
     assert production_cli_main() == 0
     preview = json.loads(capsys.readouterr().out)
@@ -419,7 +423,7 @@ def test_production_cli_previews_or_executes_one_class(
     calls: list[str] = []
     monkeypatch.setattr(
         "metaboguard.data.production_cli.generate_production_run",
-        lambda plan, root: calls.append(str(root))
+        lambda plan, root, run_pipeline=False: calls.append(str(root))
         or SimpleNamespace(
             run_id="run",
             cohort_class=plan.cohort_class,

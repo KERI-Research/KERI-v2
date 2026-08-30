@@ -75,9 +75,7 @@ def test_feasibility_is_horizon_specific_and_synthetic_only(
     assert not rows[0].partition_event_gate_passed
     assert rows[0].readiness_decision == "not_eligible"
     write_production_feasibility(run, rows)
-    report = json.loads(
-        (run / "feasibility" / "endpoint_feasibility_report.json").read_text()
-    )
+    report = json.loads((run / "feasibility" / "endpoint_feasibility_report.json").read_text())
     assert report["pipeline_rehearsal_only"] is True
     assert report["prototype_modeling_authorized"] is True
     assert report["clinical_model_research_authorized"] is False

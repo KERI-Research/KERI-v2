@@ -16,9 +16,7 @@ from metaboguard.data.production_validation import (
 
 
 def test_manifest_validation_rejects_failed_completed_run() -> None:
-    manifest = new_production_manifest(
-        "ordinary_incidence", 10, 1, "baseline", "test", {"seed": 1}
-    )
+    manifest = new_production_manifest("ordinary_incidence", 10, 1, "baseline", "test", {"seed": 1})
     manifest.generated_patient_count = 11
     manifest.status = "completed"
     manifest.batch_records = [
@@ -33,9 +31,7 @@ def test_manifest_validation_rejects_failed_completed_run() -> None:
     ]
     report = validate_production_manifest(manifest)
     assert not report.passed
-    assert any(
-        check.name == "population_target_not_overclaimed" for check in report.checks
-    )
+    assert any(check.name == "population_target_not_overclaimed" for check in report.checks)
 
 
 def test_cohort_table_and_hash_validation(tmp_path: Path) -> None:
@@ -47,9 +43,7 @@ def test_cohort_table_and_hash_validation(tmp_path: Path) -> None:
         pd.DataFrame({"cohort_class": ["ordinary_incidence", "enriched_incidence"]}),
         "ordinary_incidence",
     )
-    missing = validate_cohort_table(
-        pd.DataFrame({"patient_id": ["p"]}), "ordinary_incidence"
-    )
+    missing = validate_cohort_table(pd.DataFrame({"patient_id": ["p"]}), "ordinary_incidence")
     assert good.passed
     assert not mixed.passed
     assert not missing.passed
@@ -59,9 +53,7 @@ def test_cohort_table_and_hash_validation(tmp_path: Path) -> None:
     assert validate_recorded_hash(path, digest).passed
     assert not validate_recorded_hash(path, "0" * 64).passed
     assert not validate_recorded_hash(tmp_path / "missing", digest).passed
-    invalid = new_production_manifest(
-        "ordinary_incidence", 1, 1, "baseline", "test", {}
-    )
+    invalid = new_production_manifest("ordinary_incidence", 1, 1, "baseline", "test", {})
     invalid.cohort_class = "invalid"  # type: ignore[assignment]
     report = validate_production_manifest(invalid)
     assert not report.passed

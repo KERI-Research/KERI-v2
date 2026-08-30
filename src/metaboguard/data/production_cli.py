@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from dataclasses import replace
 from pathlib import Path
 
@@ -52,6 +53,13 @@ def _parser() -> argparse.ArgumentParser:
         help="Start the configured run. Omit to print the selected immutable plan only.",
     )
     parser.add_argument(
+        "--pipeline",
+        action="store_true",
+        help=(
+            "After generation, also execute the frozen Step 4-6 cohort/feature/readiness pipeline."
+        ),
+    )
+    parser.add_argument(
         "--reconcile",
         type=Path,
         help="Reconcile an existing run directory and rewrite its top-level manifest.",
@@ -80,6 +88,10 @@ def _selected_plan(
 
 def main() -> int:
     """Run exactly one configured production cohort class."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     args = _parser().parse_args()
     if args.reconcile is not None:
         manifest = reconcile_production_manifest(args.reconcile)
@@ -111,7 +123,11 @@ def main() -> int:
             )
         )
         return 0
-    manifest = generate_production_run(plan, args.output_root)
+    manifest = generate_production_run(
+        plan,
+        args.output_root,
+        run_pipeline=args.pipeline,
+    )
     print(
         json.dumps(
             {

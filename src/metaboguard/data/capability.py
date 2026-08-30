@@ -78,9 +78,7 @@ def build_capability_report(
             diabetes_types[condition.diabetes_type or "none"] += 1
             patient = patient_by_id.get(condition.patient_id)
             if patient is not None:
-                diabetes_onsets.append(
-                    (condition.onset_date - patient.birth_date).days // 365
-                )
+                diabetes_onsets.append((condition.onset_date - patient.birth_date).days // 365)
     for patient_id in patient_by_id:
         if not any(
             condition.patient_id == patient_id and condition.category == "diabetes"
@@ -92,9 +90,7 @@ def build_capability_report(
         for condition in dataset.conditions
         if condition.category == "cancer"
     )
-    by_feature_patient: dict[str, dict[str, int]] = defaultdict(
-        lambda: defaultdict(int)
-    )
+    by_feature_patient: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     by_feature_totals: Counter[str] = Counter()
     for event in dataset.events:
         by_feature_totals[event.feature_name] += 1
@@ -121,22 +117,15 @@ def build_capability_report(
             eligible_count += onset_age_days + horizon * 365 <= death_age_days
         eligible[str(horizon)] = eligible_count
         deaths[str(horizon)] = sum(
-            patient.death_date is not None
-            and (as_of - patient.death_date).days >= horizon * 365
+            patient.death_date is not None and (as_of - patient.death_date).days >= horizon * 365
             for patient in dataset.patients
         )
     missingness = {
-        feature: sum(
-            event.is_missing
-            for event in dataset.events
-            if event.feature_name == feature
-        )
+        feature: sum(event.is_missing for event in dataset.events if event.feature_name == feature)
         / total
         for feature, total in by_feature_totals.items()
     }
-    augmentation_counts = Counter(
-        event.augmentation_module or "native" for event in dataset.events
-    )
+    augmentation_counts = Counter(event.augmentation_module or "native" for event in dataset.events)
     state = (
         "ready_for_cohort_construction"
         if sum(cancer_counts.values()) >= minimum_event_count
@@ -147,17 +136,13 @@ def build_capability_report(
         state=state,
         simulation_only=True,
         patient_count=len(dataset.patients),
-        adult_count=sum(
-            _adult(patient.birth_date, as_of) for patient in dataset.patients
-        ),
+        adult_count=sum(_adult(patient.birth_date, as_of) for patient in dataset.patients),
         diabetes_type_counts=dict(sorted(diabetes_types.items())),
         incident_cancer_count_by_site=dict(sorted(cancer_counts.items())),
         diabetes_onset_distribution={
             "count": len(diabetes_onsets),
             "median_years": (
-                sorted(diabetes_onsets)[len(diabetes_onsets) // 2]
-                if diabetes_onsets
-                else None
+                sorted(diabetes_onsets)[len(diabetes_onsets) // 2] if diabetes_onsets else None
             ),
         },
         repeated_measurements=repeated,

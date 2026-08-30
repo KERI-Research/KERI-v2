@@ -2,9 +2,7 @@ from metaboguard.features.extraction import extract_features
 from metaboguard.features.validation import validate_feature_dataset
 
 
-def test_feature_validation_warnings_are_nonblocking(
-    feature_dataset, feature_index
-) -> None:
+def test_feature_validation_warnings_are_nonblocking(feature_dataset, feature_index) -> None:
     result = extract_features(feature_dataset, [feature_index], {"p1": "train"})
     report = validate_feature_dataset(result, result.lineage, result.registry, {})
     assert report.passed

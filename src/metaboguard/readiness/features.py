@@ -10,15 +10,11 @@ from metaboguard.readiness.contracts import FeatureAvailabilityRecord
 from metaboguard.readiness.inventory import feature_artifact_dir
 
 
-def build_feature_availability(
-    run_path: Path, endpoint_id: str
-) -> list[FeatureAvailabilityRecord]:
+def build_feature_availability(run_path: Path, endpoint_id: str) -> list[FeatureAvailabilityRecord]:
     features = feature_artifact_dir(run_path, endpoint_id)
     matrix = pd.read_parquet(features / "feature_matrix.parquet")
     registry_rows = pd.read_json(features / "feature_definition_registry.json")
-    registry = {
-        row["feature_id"]: row for row in registry_rows.to_dict(orient="records")
-    }
+    registry = {row["feature_id"]: row for row in registry_rows.to_dict(orient="records")}
     identifiers = {
         "patient_id",
         "cohort_class",
@@ -59,9 +55,7 @@ def build_feature_availability(
                 unit=str(definition["unit"]),
                 row_count=len(matrix),
                 available_count=int(nonnull),
-                availability_fraction=(
-                    float(nonnull / len(matrix)) if len(matrix) else 0.0
-                ),
+                availability_fraction=(float(nonnull / len(matrix)) if len(matrix) else 0.0),
                 null_count=int(values.isna().sum()),
                 null_fraction=float(values.isna().mean()) if len(matrix) else 1.0,
                 all_null=bool(nonnull == 0),

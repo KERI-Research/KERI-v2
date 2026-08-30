@@ -9,9 +9,7 @@ from typing import Literal, cast
 from metaboguard.config import load_config
 
 OutcomeFamily = Literal["cancer", "diabetes"]
-LabelState = Literal[
-    "positive", "eligible_negative", "censored", "competing_death", "excluded"
-]
+LabelState = Literal["positive", "eligible_negative", "censored", "competing_death", "excluded"]
 
 
 def _int_value(value: object) -> int:
@@ -54,20 +52,13 @@ class EndpointProtocol:
                 mapping.get("diabetes_type"),
             ),
             horizon_years=tuple(
-                _int_value(value)
-                for value in cast(list[object], mapping["horizon_years"])
+                _int_value(value) for value in cast(list[object], mapping["horizon_years"])
             ),
             minimum_age_years=_int_value(mapping["minimum_age_years"]),
             minimum_history_days=_int_value(mapping["minimum_history_days"]),
-            minimum_preindex_encounters=_int_value(
-                mapping["minimum_preindex_encounters"]
-            ),
-            minimum_preindex_measurements=_int_value(
-                mapping["minimum_preindex_measurements"]
-            ),
-            rolling_index_interval_days=_int_value(
-                mapping["rolling_index_interval_days"]
-            ),
+            minimum_preindex_encounters=_int_value(mapping["minimum_preindex_encounters"]),
+            minimum_preindex_measurements=_int_value(mapping["minimum_preindex_measurements"]),
+            rolling_index_interval_days=_int_value(mapping["rolling_index_interval_days"]),
             prevalent_exclusion=bool(mapping["prevalent_exclusion"]),
             washout_days=_int_value(mapping["washout_days"]),
             use_competing_death_risk=bool(mapping["use_competing_death_risk"]),
@@ -183,9 +174,7 @@ def load_endpoint_registry() -> dict[str, EndpointProtocol]:
     version = str(config["endpoint_definition_version"])
     return {
         endpoint_id: EndpointProtocol.from_mapping(endpoint_id, mapping, version)
-        for endpoint_id, mapping in cast(
-            dict[str, dict[str, object]], config["endpoints"]
-        ).items()
+        for endpoint_id, mapping in cast(dict[str, dict[str, object]], config["endpoints"]).items()
     }
 
 

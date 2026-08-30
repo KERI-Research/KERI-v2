@@ -77,9 +77,7 @@ def inspect_artifact_inventory(run_path: Path, endpoint_id: str) -> ArtifactInve
     records = [_record(run_path, path, True) for path in required] + [
         _record(run_path, path, False) for path in optional
     ]
-    missing_required = [
-        record.path for record in records if record.required and not record.present
-    ]
+    missing_required = [record.path for record in records if record.required and not record.present]
     missing_optional = [
         record.path for record in records if not record.required and not record.present
     ]
@@ -115,9 +113,7 @@ def inspect_artifact_inventory(run_path: Path, endpoint_id: str) -> ArtifactInve
     return ArtifactInventory(
         run_path=str(run_path),
         endpoint_id=endpoint_id,
-        cohort_class=str(
-            run_manifest.get("cohort_class") or run_path.parent.name or "unknown"
-        ),
+        cohort_class=str(run_manifest.get("cohort_class") or run_path.parent.name or "unknown"),
         artifacts=records,
         missing_required=missing_required,
         missing_optional=missing_optional,

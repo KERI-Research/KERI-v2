@@ -25,12 +25,8 @@ class FeatureDefinition:
 FEATURE_DICTIONARY: Final[dict[str, FeatureDefinition]] = {
     "hba1c": FeatureDefinition("%", 2.0, 20.0, "4548-4", "glycaemic"),
     "glucose": FeatureDefinition("mg/dL", 20.0, 1000.0, "2339-0", "glycaemic"),
-    "insulin": FeatureDefinition(
-        "uIU/mL", 0.0, 1000.0, "augmented:insulin", "glycaemic"
-    ),
-    "c_peptide": FeatureDefinition(
-        "ng/mL", 0.0, 50.0, "augmented:c_peptide", "glycaemic"
-    ),
+    "insulin": FeatureDefinition("uIU/mL", 0.0, 1000.0, "augmented:insulin", "glycaemic"),
+    "c_peptide": FeatureDefinition("ng/mL", 0.0, 50.0, "augmented:c_peptide", "glycaemic"),
     "ca_19_9": FeatureDefinition("U/mL", 0.0, 10000.0, "augmented:ca19_9", "oncology"),
     "total_cholesterol": FeatureDefinition("mg/dL", 20.0, 1500.0, "2093-3", "lipid"),
     "hdl": FeatureDefinition("mg/dL", 1.0, 300.0, "2085-9", "lipid"),
@@ -44,31 +40,17 @@ FEATURE_DICTIONARY: Final[dict[str, FeatureDefinition]] = {
     "bmi": FeatureDefinition("kg/m^2", 5.0, 100.0, "39156-5", "anthropometry"),
     "weight": FeatureDefinition("kg", 1.0, 500.0, "29463-7", "anthropometry"),
     "height": FeatureDefinition("cm", 20.0, 250.0, "8302-2", "anthropometry"),
-    "waist_circumference": FeatureDefinition(
-        "cm", 20.0, 300.0, "8280-0", "anthropometry"
-    ),
+    "waist_circumference": FeatureDefinition("cm", 20.0, 300.0, "8280-0", "anthropometry"),
     "systolic_bp": FeatureDefinition("mmHg", 20.0, 300.0, "8480-6", "vitals"),
     "diastolic_bp": FeatureDefinition("mmHg", 20.0, 200.0, "8462-4", "vitals"),
     "smoking_status": FeatureDefinition("coded", 0.0, 1.0, "72166-2", "lifestyle"),
     "alcohol_status": FeatureDefinition("coded", 0.0, 1.0, "74013-4", "lifestyle"),
-    "tumour_stage": FeatureDefinition(
-        "coded", 0.0, 0.0, "denied:tumour_stage", "denied", False
-    ),
-    "tumour_grade": FeatureDefinition(
-        "coded", 0.0, 0.0, "denied:tumour_grade", "denied", False
-    ),
-    "histology": FeatureDefinition(
-        "coded", 0.0, 0.0, "denied:histology", "denied", False
-    ),
-    "tumour_status": FeatureDefinition(
-        "coded", 0.0, 0.0, "denied:tumour_status", "denied", False
-    ),
-    "treatment": FeatureDefinition(
-        "coded", 0.0, 0.0, "denied:treatment", "denied", False
-    ),
-    "survival_time": FeatureDefinition(
-        "days", 0.0, 0.0, "denied:survival_time", "denied", False
-    ),
+    "tumour_stage": FeatureDefinition("coded", 0.0, 0.0, "denied:tumour_stage", "denied", False),
+    "tumour_grade": FeatureDefinition("coded", 0.0, 0.0, "denied:tumour_grade", "denied", False),
+    "histology": FeatureDefinition("coded", 0.0, 0.0, "denied:histology", "denied", False),
+    "tumour_status": FeatureDefinition("coded", 0.0, 0.0, "denied:tumour_status", "denied", False),
+    "treatment": FeatureDefinition("coded", 0.0, 0.0, "denied:treatment", "denied", False),
+    "survival_time": FeatureDefinition("days", 0.0, 0.0, "denied:survival_time", "denied", False),
     "progression_time": FeatureDefinition(
         "days", 0.0, 0.0, "denied:progression_time", "denied", False
     ),
@@ -78,9 +60,7 @@ FEATURE_DICTIONARY: Final[dict[str, FeatureDefinition]] = {
     "diabetes_diagnosis_age": FeatureDefinition(
         "years", 0.0, 150.0, "denied:diabetes_diagnosis_age", "denied", False
     ),
-    "insulin_use": FeatureDefinition(
-        "coded", 0.0, 1.0, "denied:insulin_use", "denied", False
-    ),
+    "insulin_use": FeatureDefinition("coded", 0.0, 1.0, "denied:insulin_use", "denied", False),
 }
 
 LOINC_TO_FEATURE: Final[dict[str, str]] = {
@@ -96,9 +76,7 @@ AUGMENTED_CODE_TO_FEATURE: Final[dict[str, str]] = {
 }
 
 
-def get_feature_definition(
-    feature_name: str, *, target: str | None = None
-) -> FeatureDefinition:
+def get_feature_definition(feature_name: str, *, target: str | None = None) -> FeatureDefinition:
     """Return a feature definition or reject it as unknown/denied."""
     definition = FEATURE_DICTIONARY.get(feature_name)
     diabetes_only_denied = {"diabetes_diagnosis_age", "insulin_use"}
@@ -118,6 +96,4 @@ def validate_feature_name(feature_name: str) -> None:
 
 def feature_names() -> tuple[str, ...]:
     """Return the allowed canonical feature names in stable order."""
-    return tuple(
-        name for name, definition in FEATURE_DICTIONARY.items() if definition.allowed
-    )
+    return tuple(name for name, definition in FEATURE_DICTIONARY.items() if definition.allowed)
