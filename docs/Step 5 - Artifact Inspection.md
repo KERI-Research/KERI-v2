@@ -10,7 +10,7 @@ Inspected feature artifact set:
 
 `features/type2_diabetes_inspection/`
 
-The inspection used ten real eligible patient-index records from the accepted Synthea 3.3.0 ordinary-incidence run. It consumed the real canonical Parquet, real cohort indexes, and real split assignments. Feature extraction received no horizon labels, outcome tables, censoring states, or competing-death labels.
+The inspection used ten real eligible patient-index records from the accepted Synthea 4.0.0 ordinary-incidence run. It consumed the real canonical Parquet, real cohort indexes, and real split assignments. Feature extraction received no horizon labels, outcome tables, censoring states, or competing-death labels.
 
 ## Results
 

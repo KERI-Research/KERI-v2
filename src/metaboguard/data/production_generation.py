@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from metaboguard.cli.progress import ProgressReporter
 from metaboguard.cohort.manifests import construct_endpoint_cohort
 from metaboguard.cohort.protocol import (
     EndpointProtocol,
@@ -199,7 +200,8 @@ def _run_frozen_pipeline(
     )
     registry = load_endpoint_registry()
     use_streaming_features = os.name != "nt"
-    for endpoint_id in endpoints:
+    progress = ProgressReporter(len(endpoints), label="endpoints (steps 4-6)")
+    for endpoint_index, endpoint_id in enumerate(endpoints):
         try:
             endpoint: EndpointProtocol = registry[endpoint_id]
             cohort_path = run_path / "cohort" / endpoint_id
@@ -261,14 +263,17 @@ def _run_frozen_pipeline(
                 run_id=run_path.name,
             )
             write_production_feasibility(run_path, rows)
+            progress.update(endpoint_index + 1, suffix=endpoint_id)
         except Exception as error:
             diagnostic = f"{type(error).__name__}: {error}"
             logger.exception(
                 "Steps 4-6 failed for endpoint %s: %s", endpoint_id, diagnostic
             )
+            progress.close()
             raise RuntimeError(
                 f"Steps 4-6 failed for endpoint {endpoint_id}: {diagnostic}"
             ) from error
+    progress.close()
 
 
 def _load_batch_records(
@@ -287,7 +292,9 @@ def _load_batch_records(
                 started_at=started_at,
                 completed_at=started_at if payload.get("state") == "complete" else None,
                 return_code=(
-                    int(payload["return_code"]) if "return_code" in payload else None
+                    int(payload["return_code"])
+                    if payload.get("return_code") is not None
+                    else None
                 ),
                 source_sha256=str(payload.get("raw_sha256", "")),
                 canonical_sha256=str(payload.get("canonical_sha256", "")),

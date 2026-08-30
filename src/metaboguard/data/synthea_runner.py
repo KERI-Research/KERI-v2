@@ -16,6 +16,7 @@ from typing import cast
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
 
+from metaboguard.cli.progress import ProgressReporter
 from metaboguard.data.augmentation import (
     augment_c_peptide,
     augment_ca19_9,
@@ -193,6 +194,28 @@ def _java_version(executable: str) -> str:
     return output[0] if output else "unknown"
 
 
+def _java_retry_options(config: SyntheaGenerationConfig) -> tuple[str, ...]:
+    """Use a conservative JVM profile after a fatal JVM crash.
+
+    The default production profile can drive Java 17 on Windows into a fatal VM
+    crash with SerialGC and a large heap. When the VM dies, retry with a smaller
+    heap and a more stable collector rather than reusing the crash-prone flags.
+    """
+    filtered: list[str] = []
+    for option in config.jvm_options:
+        lowered = option.lower()
+        if lowered.startswith("-xmx") or lowered.startswith("-xms"):
+            continue
+        if lowered.startswith("-xx:+useserialgc"):
+            continue
+        if lowered.startswith("-xx:activeprocessorcount="):
+            continue
+        filtered.append(option)
+
+    fallback = ("-Xmx4g", "-XX:+UseG1GC")
+    return (*fallback, *filtered, "-Xint")
+
+
 def _run_java_batch(
     config: SyntheaGenerationConfig, raw_dir: Path, seed: int
 ) -> list[str]:
@@ -224,18 +247,29 @@ def _run_java_batch(
         if isinstance(error, subprocess.CalledProcessError) and crash_logs:
             safe_command = [
                 config.java_executable,
-                *config.jvm_options,
-                "-Xint",
+                *_java_retry_options(config),
                 "-XX:ErrorFile="
                 + (raw_dir / "hs_err_pid%p.retry.log").resolve().as_posix(),
-                *command[1 + len(config.jvm_options) + 1 :],
+                "-jar",
+                str(config.jar_path),
+                "-p",
+                str(config.batch_size),
+                "-s",
+                str(seed),
+                "--exporter.csv.export=true",
+                "--exporter.fhir.export=false",
+                "--exporter.baseDirectory=" + raw_dir.resolve().as_posix(),
+                "--exporter.years_of_history=10",
             ]
             logger.warning(
-                "Synthea JVM crashed; retrying batch %s without JIT compilation", seed
+                "Synthea JVM crashed; retrying batch %s with a more stable JVM profile",
+                seed,
             )
             try:
                 with log_path.open("a", encoding="utf-8") as log:
-                    log.write("\nRetrying after JVM fatal error with -Xint\n")
+                    log.write(
+                        "\nRetrying after JVM fatal error with a stable GC profile\n"
+                    )
                     subprocess.run(
                         safe_command,
                         check=True,
@@ -548,6 +582,9 @@ def _generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManif
     manifest.write(run_dir / config.manifest_filename)
     batch_datasets: list[CanonicalDataset] = []
     raw_hashes: list[str] = []
+    progress = ProgressReporter(
+        config.batch_count, label=f"{config.cohort_class} batches"
+    )
     for batch_index, seed in enumerate(manifest.batch_seeds):
         raw_dir = run_dir / "raw" / f"batch_{batch_index:05d}"
         canonical_dir = batch_canonical_root / f"batch_{batch_index:05d}"
@@ -558,6 +595,7 @@ def _generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManif
             batch_datasets.append(batch_dataset)
             raw_hashes.append(previous_raw_hash)
             manifest.generation_commands.append(["resumed", str(batch_index)])
+            progress.update(batch_index + 1, suffix="resumed")
             continue
         raw_dir.mkdir(parents=True, exist_ok=True)
         command: list[str] = []
@@ -610,6 +648,7 @@ def _generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManif
             )
             manifest.generation_commands.append(command)
             shutil.rmtree(raw_dir)
+            progress.update(batch_index + 1)
         except Exception as error:
             cause = error
             if isinstance(error, SyntheaGenerationError):
@@ -632,7 +671,9 @@ def _generate_synthea_cohort(config: SyntheaGenerationConfig) -> GenerationManif
                 command,
             )
             logger.exception("Synthea batch %s failed during %s", batch_index, stage)
+            progress.close()
             raise error from cause
+    progress.close()
     raw_root = run_dir / "raw"
     if raw_root.is_dir() and not any(raw_root.iterdir()):
         raw_root.rmdir()

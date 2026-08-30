@@ -161,13 +161,13 @@ def test_conversion_is_byte_deterministic() -> None:
 )
 def test_synthea_birth_boundary_is_normalized_and_audited(tmp_path: Path) -> None:
     dataset = to_canonical(
-        _boundary_fixture(tmp_path), source="synthea", source_version="3.3.0"
+        _boundary_fixture(tmp_path), source="synthea", source_version="4.0.0"
     )
     assert len(dataset.date_normalisation_audit) == 1
     audit = dataset.date_normalisation_audit[0]
     assert audit["original_event_date"] == "2015-01-15"
     assert audit["normalised_event_date"] == "2015-01-16"
-    assert audit["source_version"] == "3.3.0"
+    assert audit["source_version"] == "4.0.0"
     assert audit["source_code"] == "8302-2"
     assert validate(dataset).passed
     audit_path = dataset.output_dir / "date_normalisation_audit.json"  # type: ignore[union-attr]
@@ -188,7 +188,7 @@ def test_nonqualifying_prebirth_events_remain_chronology_errors(
     dataset = to_canonical(
         _boundary_fixture(tmp_path, days_before=days_before, code=code),
         source=source,
-        source_version="3.3.0",
+        source_version="4.0.0",
     )
     report = validate(dataset)
     chronology = next(check for check in report.checks if check.name == "chronology")
@@ -209,7 +209,7 @@ def test_prebirth_condition_remains_chronology_error(tmp_path: Path) -> None:
         writer = csv.DictWriter(stream, fieldnames=conditions[0].keys())
         writer.writeheader()
         writer.writerows(conditions)
-    report = validate(to_canonical(raw_dir, source="synthea", source_version="3.3.0"))
+    report = validate(to_canonical(raw_dir, source="synthea", source_version="4.0.0"))
     chronology = next(check for check in report.checks if check.name == "chronology")
     assert chronology.passed is False
 
@@ -221,8 +221,8 @@ def test_prebirth_condition_remains_chronology_error(tmp_path: Path) -> None:
 def test_birth_boundary_normalization_is_byte_deterministic(tmp_path: Path) -> None:
     first_dir = _boundary_fixture(tmp_path / "first")
     second_dir = _boundary_fixture(tmp_path / "second")
-    first = to_canonical(first_dir, source="synthea", source_version="3.3.0")
-    second = to_canonical(second_dir, source="synthea", source_version="3.3.0")
+    first = to_canonical(first_dir, source="synthea", source_version="4.0.0")
+    second = to_canonical(second_dir, source="synthea", source_version="4.0.0")
     assert (
         first.date_normalisation_audit_sha256 == second.date_normalisation_audit_sha256
     )
@@ -412,14 +412,14 @@ def test_synthea_micromolar_creatinine_is_normalised_and_audited(
     tmp_path: Path,
 ) -> None:
     dataset = to_canonical(
-        _creatinine_fixture(tmp_path), source="synthea", source_version="3.3.0"
+        _creatinine_fixture(tmp_path), source="synthea", source_version="4.0.0"
     )
     assert len(dataset.unit_normalisation_audit) == 1
     audit = dataset.unit_normalisation_audit[0]
     assert audit["original_value"] == 97.1
     assert audit["original_unit"] == "mg/dL"
     assert audit["normalised_value"] == pytest.approx(1.098, abs=0.01)
-    assert audit["source_version"] == "3.3.0"
+    assert audit["source_version"] == "4.0.0"
     assert validate(dataset).passed
     assert (dataset.output_dir / "unit_normalisation_audit.json").exists()  # type: ignore[union-attr]
     assert dataset.unit_normalisation_audit_sha256
@@ -439,9 +439,46 @@ def test_creatinine_normalisation_is_narrowly_gated(
     dataset = to_canonical(
         _creatinine_fixture(tmp_path, value=value),
         source=source,
-        source_version="3.3.0",
+        source_version="4.0.0",
     )
     assert dataset.unit_normalisation_audit == []
+
+
+@pytest.mark.skipif(
+    sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
+    reason="Skip on GitHub Actions",
+)
+def test_synthea_out_of_range_observation_becomes_audited_missing_value(
+    tmp_path: Path,
+) -> None:
+    raw_dir = _creatinine_fixture(tmp_path, value="19")
+    observations_path = raw_dir / "observations.csv"
+    observations = list(csv.DictReader(observations_path.open(encoding="utf-8")))
+    observations[0].update(
+        {
+            "CODE": "8462-4",
+            "DESCRIPTION": "Diastolic Blood Pressure",
+            "UNITS": "mmHg",
+        }
+    )
+    with observations_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=observations[0].keys())
+        writer.writeheader()
+        writer.writerows(observations)
+
+    dataset = to_canonical(raw_dir, source="synthea", source_version="4.0.0")
+    event = next(
+        event for event in dataset.events if event.feature_name == "diastolic_bp"
+    )
+    report = json.loads(
+        (dataset.output_dir / "conversion_report.json").read_text(encoding="utf-8")  # type: ignore[union-attr]
+    )
+
+    assert event.value is None
+    assert event.is_missing
+    assert validate(dataset).passed
+    assert report["out_of_range_observations"][0]["original_value"] == 19.0
+    assert report["out_of_range_observations"][0]["feature_name"] == "diastolic_bp"
 
 
 @pytest.mark.skipif(

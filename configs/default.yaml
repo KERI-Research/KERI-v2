@@ -28,13 +28,13 @@ validation:
         age_tolerance_days: 1
 
 synthea:
-        synthea_version: "3.3.0"
+        synthea_version: "4.0.0"
         jar_path: "data/tools/synthea-with-dependencies.jar"
-        jar_sha256: "8ba04f7d73abadd5a377e41edf24c5c83935a1cb07c6d982cd5db731ef1cf445"
+        jar_sha256: "ed43c20ad40ba5c3bc724503a5af032715fe3c491620b766148e7c2361e6ecc1"
         geography: "Massachusetts"
         min_age: 18
         max_age: 100
-        batch_size: 10000
+        batch_size: 500
         output_root: "data/synthetic_longitudinal"
         java_executable: "java"
         ordinary_incidence_target: 250000
@@ -64,15 +64,15 @@ production_generation:
                 max_attempts: 2
                 retry_only_failed_batches: true
         execution:
-                batch_population_size: 5000
-                java_executable: "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.20.8-hotspot\\bin\\java.exe"
-                jvm_options:
-                        [
-                                -Xmx4g,
-                                -XX:+UseSerialGC,
-                                -XX:ActiveProcessorCount=4,
-                                -XX:TieredStopAtLevel=1,
-                        ]
+                # Kept small: a single 5000-patient/10yr-history JVM batch drives
+                # tenured gen to ~98% occupancy, which increases odds of hitting
+                # the C1 compiler crash below. Smaller batches lower GC pressure.
+                batch_population_size: 1000
+                java_executable: "C:\\Program Files\\Java\\jdk-25.0.4\\bin\\java.exe"
+                jvm_options: []
+                # "-Xmx6g",
+                # "-XX:+UseSerialGC",
+                # "-XX:ActiveProcessorCount=4",
                 continue_on_independent_batch_failure: true
                 require_canonical_validation_before_cohort_build: true
                 require_complete_feature_build_before_readiness: true

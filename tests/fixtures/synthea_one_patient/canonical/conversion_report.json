@@ -4,5 +4,6 @@
   },
   "encounter_counts": {
     "p-001": 6
-  }
+  },
+  "out_of_range_observations": []
 }

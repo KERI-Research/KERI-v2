@@ -20,7 +20,7 @@ def test_production_identity_and_round_trip(tmp_path: Path) -> None:
     assert first == second
     assert first != enriched
     manifest = new_production_manifest(
-        "ordinary_incidence", 100, 17, "baseline", "3.3.0", {"seed": 17}
+        "ordinary_incidence", 100, 17, "baseline", "4.0.0", {"seed": 17}
     )
     path = tmp_path / "manifest.json"
     manifest.write(path)
@@ -47,7 +47,7 @@ def test_batch_record_and_strict_manifest() -> None:
         root_seed=17,
         augmentation_profile="endpoint_enriched",
         configuration_sha256="a" * 64,
-        synthea_version="3.3.0",
+        synthea_version="4.0.0",
         started_at="now",
         batch_records=[batch],
         status="partial",
@@ -61,7 +61,7 @@ def test_batch_record_and_strict_manifest() -> None:
             root_seed=1,
             augmentation_profile="baseline",
             configuration_sha256="a" * 64,
-            synthea_version="3.3.0",
+            synthea_version="4.0.0",
             started_at="now",
             unexpected=True,
         )

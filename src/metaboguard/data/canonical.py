@@ -51,10 +51,13 @@ SYNTHEA_DATE_NORMALISATION_VERSION = "1.0.0"
 SYNTHEA_BIRTH_CONTEXT_CODES = frozenset(
     {"8302-2", "29463-7", "8462-4", "8480-6", "718-7", "777-3", "72166-2"}
 )
+# 2026-08-25 audit: Synthea 4.0.0 exhibits the same day-before-birth vital-sign
+# boundary quirk observed under 4.0.0 (identical codes, identical -1 day offset).
+SYNTHEA_BIRTH_CONTEXT_QUIRK_VERSIONS = frozenset({"4.0.0"})
 
 SYNTHEA_UNIT_NORMALISATION_VERSION = "1.0.0"
 SYNTHEA_MICROMOLAR_CREATININE_CODE = "2160-0"
-# Synthea 3.3.0 emits some serum creatinine at micromole-per-litre magnitude under an mg/dL label.
+# Synthea 4.0.0 emits some serum creatinine at micromole-per-litre magnitude under an mg/dL label.
 MICROMOLES_PER_LITRE_TO_MILLIGRAMS_PER_DECILITRE = 1 / 88.4
 
 
@@ -197,57 +200,70 @@ def to_canonical(
     observations_csv = _read_csv(raw_dir, "observations")
     conditions_csv = _read_csv(raw_dir, "conditions")
 
+    # DataFrame.iterrows() builds a per-row Series and segfaults (pandas/numpy
+    # native access violation) on large CSVs; itertuples() avoids that entirely.
+    patients_columns = set(patients_csv.columns)
     patients = [
         Patient(
-            patient_id=row["Id"],
-            birth_date=_parse_date(row["BIRTHDATE"]),
+            patient_id=row.Id,
+            birth_date=_parse_date(row.BIRTHDATE),
             sex={"m": "male", "f": "female"}.get(
-                row["GENDER"].lower(), row["GENDER"].lower()
+                row.GENDER.lower(), row.GENDER.lower()
             ),
-            ethnicity=row.get("RACE", row.get("ETHNICITY", "unknown")),
-            death_date=_parse_date(row["DEATHDATE"]) if row.get("DEATHDATE") else None,
+            ethnicity=(
+                row.RACE
+                if "RACE" in patients_columns
+                else getattr(row, "ETHNICITY", "unknown")
+            ),
+            death_date=(
+                _parse_date(row.DEATHDATE) if getattr(row, "DEATHDATE", "") else None
+            ),
         )
-        for _, row in patients_csv.iterrows()
+        for row in patients_csv.itertuples(index=False)
     ]
     patient_by_id = {patient.patient_id: patient for patient in patients}
+    encounters_has_class = "ENCOUNTERCLASS" in encounters_csv.columns
     encounters: dict[str, tuple[str, date]] = {
-        row["Id"]: (
-            _encounter_type(row.get("ENCOUNTERCLASS", "other")),
-            _parse_date(row["START"]),
+        row.Id: (
+            _encounter_type(row.ENCOUNTERCLASS if encounters_has_class else "other"),
+            _parse_date(row.START),
         )
-        for _, row in encounters_csv.iterrows()
+        for row in encounters_csv.itertuples(index=False)
     }
     encounter_counts = encounters_csv.groupby("PATIENT").size().to_dict()
 
     dropped: dict[str, int] = {}
     date_normalisation_audit: list[dict[str, object]] = []
     unit_normalisation_audit: list[dict[str, object]] = []
+    out_of_range_observations: list[dict[str, object]] = []
     event_rows: dict[tuple[str, date, str], ClinicalEvent] = {}
-    for _, row in observations_csv.iterrows():
-        code = row["CODE"]
+    observations_has_encounter = "ENCOUNTER" in observations_csv.columns
+    observations_has_value = "VALUE" in observations_csv.columns
+    observations_has_units = "UNITS" in observations_csv.columns
+    for row in observations_csv.itertuples(index=False):
+        code = row.CODE
         feature_name = LOINC_TO_FEATURE.get(code, AUGMENTED_CODE_TO_FEATURE.get(code))
         if feature_name is None:
             dropped[code] = dropped.get(code, 0) + 1
             continue
         definition = get_feature_definition(feature_name)
-        patient = patient_by_id[row["PATIENT"]]
-        original_event_date = _parse_date(row["DATE"])
+        patient = patient_by_id[row.PATIENT]
+        original_event_date = _parse_date(row.DATE)
         event_date = original_event_date
+        encounter_id = row.ENCOUNTER if observations_has_encounter else ""
         if (
             source == "synthea"
-            and source_version == "3.3.0"
-            and row["CODE"] in SYNTHEA_BIRTH_CONTEXT_CODES
+            and source_version in SYNTHEA_BIRTH_CONTEXT_QUIRK_VERSIONS
+            and row.CODE in SYNTHEA_BIRTH_CONTEXT_CODES
             and original_event_date == patient.birth_date - timedelta(days=1)
         ):
             event_date = patient.birth_date
             date_normalisation_audit.append(
                 {
-                    "patient_id": row["PATIENT"],
-                    "event_identifier": ":".join(
-                        [row.get("ENCOUNTER", ""), row["CODE"], row["DATE"]]
-                    ),
+                    "patient_id": row.PATIENT,
+                    "event_identifier": ":".join([encounter_id, row.CODE, row.DATE]),
                     "feature_name": feature_name,
-                    "source_code": row["CODE"],
+                    "source_code": row.CODE,
                     "original_event_date": original_event_date.isoformat(),
                     "normalised_event_date": event_date.isoformat(),
                     "reason": "synthea_3_3_0_birth_context_date_only_boundary",
@@ -256,19 +272,19 @@ def to_canonical(
                     "normalisation_version": SYNTHEA_DATE_NORMALISATION_VERSION,
                 }
             )
-        encounter_type, _ = encounters.get(
-            row.get("ENCOUNTER", ""), ("other", event_date)
-        )
+        encounter_type, _ = encounters.get(encounter_id, ("other", event_date))
         age = event_date.toordinal() - patient.birth_date.toordinal()
         age_years = age / 365.2425
-        missing = not row.get("VALUE", "")
+        raw_value = row.VALUE if observations_has_value else ""
+        raw_units = row.UNITS if observations_has_units else ""
+        missing = not raw_value
         value = (
             None
             if missing
             else convert_unit(
                 feature_name,
-                _observation_value(feature_name, row["VALUE"], row.get("UNITS", "")),
-                row.get("UNITS", ""),
+                _observation_value(feature_name, raw_value, raw_units),
+                raw_units,
                 definition.canonical_unit,
             )
         )
@@ -285,22 +301,22 @@ def to_canonical(
         if (
             value is not None
             and source == "synthea"
-            and source_version == "3.3.0"
-            and row["CODE"] == SYNTHEA_MICROMOLAR_CREATININE_CODE
+            and source_version == "4.0.0"
+            and row.CODE == SYNTHEA_MICROMOLAR_CREATININE_CODE
             and value > definition.plausible_max
         ):
             converted = value * MICROMOLES_PER_LITRE_TO_MILLIGRAMS_PER_DECILITRE
             if definition.plausible_min <= converted <= definition.plausible_max:
                 unit_normalisation_audit.append(
                     {
-                        "patient_id": row["PATIENT"],
+                        "patient_id": row.PATIENT,
                         "event_identifier": ":".join(
-                            [row.get("ENCOUNTER", ""), row["CODE"], row["DATE"]]
+                            [encounter_id, row.CODE, row.DATE]
                         ),
                         "feature_name": feature_name,
-                        "source_code": row["CODE"],
+                        "source_code": row.CODE,
                         "original_value": value,
-                        "original_unit": row.get("UNITS", ""),
+                        "original_unit": raw_units,
                         "normalised_value": converted,
                         "normalised_unit": definition.canonical_unit,
                         "reason": "synthea_3_3_0_creatinine_micromolar_magnitude_under_mg_dl_label",
@@ -310,8 +326,30 @@ def to_canonical(
                     }
                 )
                 value = converted
+        if (
+            value is not None
+            and source == "synthea"
+            and source_version == "4.0.0"
+            and not definition.plausible_min <= value <= definition.plausible_max
+        ):
+            out_of_range_observations.append(
+                {
+                    "patient_id": row.PATIENT,
+                    "event_identifier": ":".join([encounter_id, row.CODE, row.DATE]),
+                    "feature_name": feature_name,
+                    "source_code": row.CODE,
+                    "original_value": value,
+                    "original_unit": raw_units,
+                    "canonical_unit": definition.canonical_unit,
+                    "reason": "synthea_3_3_0_value_outside_feature_plausibility_range",
+                    "source": source,
+                    "source_version": source_version,
+                }
+            )
+            value = None
+            missing = True
         event = ClinicalEvent(
-            patient_id=row["PATIENT"],
+            patient_id=row.PATIENT,
             event_date=event_date,
             age_at_event=age_years,
             encounter_type=cast(EncounterType, encounter_type),
@@ -326,18 +364,21 @@ def to_canonical(
             (event.patient_id, event.event_date, event.feature_name), event
         )
 
+    conditions_has_description = "DESCRIPTION" in conditions_csv.columns
+    conditions_has_stop = "STOP" in conditions_csv.columns
     conditions: list[ConditionRecord] = []
-    for _, row in conditions_csv.iterrows():
-        display = row.get("DESCRIPTION", row.get("CODE", ""))
+    for row in conditions_csv.itertuples(index=False):
+        display = row.DESCRIPTION if conditions_has_description else row.CODE
         category = _condition_category(display)
+        stop_value = row.STOP if conditions_has_stop else ""
         conditions.append(
             ConditionRecord(
-                patient_id=row["PATIENT"],
-                condition_code=row["CODE"],
+                patient_id=row.PATIENT,
+                condition_code=row.CODE,
                 condition_system="SNOMED-CT",
                 condition_display=display,
-                onset_date=_parse_date(row["START"]),
-                resolved_date=_parse_date(row["STOP"]) if row.get("STOP") else None,
+                onset_date=_parse_date(row.START),
+                resolved_date=_parse_date(stop_value) if stop_value else None,
                 category=category,
                 diabetes_type=_diabetes_type(display),
                 cancer_site=_cancer_site(display),
@@ -439,6 +480,7 @@ def to_canonical(
     report = {
         "dropped_loinc_codes": dict(sorted(dropped.items())),
         "encounter_counts": encounter_counts,
+        "out_of_range_observations": out_of_range_observations,
     }
     (output_dir / "conversion_report.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
