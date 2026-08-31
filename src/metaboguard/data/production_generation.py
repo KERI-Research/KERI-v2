@@ -88,9 +88,13 @@ class ProductionGenerationConfig:
             populations = raw["population_sizes"]
             seeds = raw["seeds"]
             if not isinstance(populations, list) or not isinstance(seeds, list):
-                raise TypeError(f"Population sizes and seeds must be lists for {cohort_class}")
+                raise TypeError(
+                    f"Population sizes and seeds must be lists for {cohort_class}"
+                )
             if len(populations) != len(seeds):
-                raise ValueError(f"Population and seed counts differ for {cohort_class}")
+                raise ValueError(
+                    f"Population and seed counts differ for {cohort_class}"
+                )
             for population, seed in zip(populations, seeds, strict=True):
                 plans.append(
                     ProductionCohortPlan(
@@ -122,7 +126,9 @@ class ProductionGenerationConfig:
             max_attempts=int(retry["max_attempts"]),
             retry_only_failed_batches=bool(retry["retry_only_failed_batches"]),
             batch_population_size=int(execution["batch_population_size"]),
-            jvm_options=tuple(str(option) for option in execution.get("jvm_options", [])),
+            jvm_options=tuple(
+                str(option) for option in execution.get("jvm_options", [])
+            ),
             continue_on_independent_batch_failure=bool(
                 execution["continue_on_independent_batch_failure"]
             ),
@@ -142,7 +148,9 @@ class ProductionGenerationConfig:
 
 def load_production_config() -> ProductionGenerationConfig:
     """Load the configured Step 7 production plan."""
-    return ProductionGenerationConfig.from_mapping(load_config()["production_generation"])
+    return ProductionGenerationConfig.from_mapping(
+        load_config()["production_generation"]
+    )
 
 
 def _generation_config(
@@ -167,11 +175,15 @@ def _generation_config(
         min_age=int(synthea["min_age"]),
         max_age=int(synthea["max_age"]),
         output_root=output_root,
-        java_executable=str(production.get("java_executable", synthea["java_executable"])),
+        java_executable=str(
+            production.get("java_executable", synthea["java_executable"])
+        ),
         jvm_options=tuple(str(option) for option in production.get("jvm_options", [])),
         run_id=run_id,
         manifest_filename="generation_manifest.json",
-        enabled_cancer_sites=tuple(str(site) for site in synthea["enabled_cancer_sites"]),
+        enabled_cancer_sites=tuple(
+            str(site) for site in synthea["enabled_cancer_sites"]
+        ),
     )
 
 
@@ -215,7 +227,9 @@ def _run_frozen_pipeline(
             )
             split = build_splits(cohort, SplitConfig(root_seed=1729))
             logger.info("Steps 4-6: splits built for %s", endpoint_id)
-            write_split_artifacts(split, cast(list[object], cohort.labels), cohort_path / "splits")
+            write_split_artifacts(
+                split, cast(list[object], cohort.labels), cohort_path / "splits"
+            )
             logger.info("Steps 4-6: split artifacts written for %s", endpoint_id)
             feature_output = run_path / "features" / endpoint_id
             if use_streaming_features:
@@ -230,7 +244,9 @@ def _run_frozen_pipeline(
                     dataset,
                     cohort.patient_indexes,
                     split.assignments,
-                    source_cohort_manifest_sha256=file_sha256(cohort_path / "cohort_manifest.json"),
+                    source_cohort_manifest_sha256=file_sha256(
+                        cohort_path / "cohort_manifest.json"
+                    ),
                     source_split_manifest_sha256=file_sha256(
                         cohort_path / "splits" / "split_manifest.json"
                     ),
@@ -259,7 +275,9 @@ def _run_frozen_pipeline(
                     dataset,
                     cohort.patient_indexes,
                     split.assignments,
-                    source_cohort_manifest_sha256=file_sha256(cohort_path / "cohort_manifest.json"),
+                    source_cohort_manifest_sha256=file_sha256(
+                        cohort_path / "cohort_manifest.json"
+                    ),
                     source_split_manifest_sha256=file_sha256(
                         cohort_path / "splits" / "split_manifest.json"
                     ),
@@ -293,7 +311,9 @@ def _run_frozen_pipeline(
             progress.update(endpoint_index + 1, suffix=endpoint_id)
         except Exception as error:
             diagnostic = f"{type(error).__name__}: {error}"
-            logger.exception("Steps 4-6 failed for endpoint %s: %s", endpoint_id, diagnostic)
+            logger.exception(
+                "Steps 4-6 failed for endpoint %s: %s", endpoint_id, diagnostic
+            )
             progress.close()
             raise RuntimeError(
                 f"Steps 4-6 failed for endpoint {endpoint_id}: {diagnostic}"
@@ -317,7 +337,9 @@ def _load_batch_records(
                 started_at=started_at,
                 completed_at=started_at if payload.get("state") == "complete" else None,
                 return_code=(
-                    int(payload["return_code"]) if payload.get("return_code") is not None else None
+                    int(payload["return_code"])
+                    if payload.get("return_code") is not None
+                    else None
                 ),
                 source_sha256=str(payload.get("raw_sha256", "")),
                 canonical_sha256=str(payload.get("canonical_sha256", "")),
@@ -345,7 +367,9 @@ def _existing_files(run_path: Path, relative_paths: list[str]) -> bool:
 
 def _hash_existing_files(run_path: Path, relative_paths: list[str]) -> dict[str, str]:
     return {
-        relative_path: hashlib.sha256((run_path / relative_path).read_bytes()).hexdigest()
+        relative_path: hashlib.sha256(
+            (run_path / relative_path).read_bytes()
+        ).hexdigest()
         for relative_path in relative_paths
         if (run_path / relative_path).is_file()
     }
@@ -366,14 +390,18 @@ def reconcile_production_manifest(
     )
     generation_path = run_path / "generation_manifest.json"
     generation = (
-        json.loads(generation_path.read_text(encoding="utf-8")) if generation_path.is_file() else {}
+        json.loads(generation_path.read_text(encoding="utf-8"))
+        if generation_path.is_file()
+        else {}
     )
     logger.info(
         "Reconcile manifest: generation exists=%s state=%s",
         generation_path.is_file(),
         generation.get("state"),
     )
-    batch_records = _load_batch_records(run_path, manifest.started_at, manifest.population_target)
+    batch_records = _load_batch_records(
+        run_path, manifest.started_at, manifest.population_target
+    )
     logger.info("Reconcile manifest: loaded %s batch records", len(batch_records))
     canonical_files = [
         "canonical/patients.parquet",
@@ -382,7 +410,9 @@ def reconcile_production_manifest(
         "canonical/outcomes.parquet",
     ]
     generation_complete = generation.get("state") == "complete"
-    canonical_complete = generation_complete and _existing_files(run_path, canonical_files)
+    canonical_complete = generation_complete and _existing_files(
+        run_path, canonical_files
+    )
     endpoint_paths = (
         sorted(path for path in (run_path / "cohort").iterdir() if path.is_dir())
         if (run_path / "cohort").is_dir()
@@ -439,10 +469,14 @@ def reconcile_production_manifest(
         feasibility_complete,
     )
     manifest.generated_patient_count = int(
-        generation.get("generated_patient_count", generation.get("converted_patient_count", 0))
+        generation.get(
+            "generated_patient_count", generation.get("converted_patient_count", 0)
+        )
     )
     if manifest.generated_patient_count == 0 and canonical_complete:
-        manifest.generated_patient_count = len(_read_canonical_dir(run_path / "canonical").patients)
+        manifest.generated_patient_count = len(
+            _read_canonical_dir(run_path / "canonical").patients
+        )
     manifest.batch_records = batch_records
     manifest.canonical_status = "created" if canonical_complete else "not_created"
     manifest.cohort_status = "created" if cohort_complete else "not_created"
@@ -456,13 +490,21 @@ def reconcile_production_manifest(
             "generation_manifest.json",
             *[
                 f"batch_manifests/{record_path.name}"
-                for record_path in sorted((run_path / "batch_manifests").glob("batch_*.json"))
+                for record_path in sorted(
+                    (run_path / "batch_manifests").glob("batch_*.json")
+                )
             ],
             *canonical_files,
             *[f"cohort/{path.name}/cohort_manifest.json" for path in endpoint_paths],
-            *[f"cohort/{path.name}/splits/split_manifest.json" for path in endpoint_paths],
+            *[
+                f"cohort/{path.name}/splits/split_manifest.json"
+                for path in endpoint_paths
+            ],
             *[f"features/{path.name}/feature_manifest.json" for path in endpoint_paths],
-            *[f"readiness/{path.name}/readiness_manifest.json" for path in endpoint_paths],
+            *[
+                f"readiness/{path.name}/readiness_manifest.json"
+                for path in endpoint_paths
+            ],
             "feasibility/endpoint_feasibility_report.json",
         ],
     )
@@ -508,11 +550,16 @@ def reconcile_production_manifest(
     ):
         manifest.status = (
             "completed_not_ready"
-            if any(decision in {"not_eligible", "blocked"} for decision in readiness_decisions)
+            if any(
+                decision in {"not_eligible", "blocked"}
+                for decision in readiness_decisions
+            )
             else (
                 "completed_prototype_ready"
                 if readiness_decisions
-                and all(decision == "prototype_ready" for decision in readiness_decisions)
+                and all(
+                    decision == "prototype_ready" for decision in readiness_decisions
+                )
                 else "completed"
             )
         )
@@ -535,7 +582,9 @@ def generate_production_run(
     output_root: Path,
     *,
     run_pipeline: bool = False,
-    generation_runner: Callable[[SyntheaGenerationConfig], object] = generate_synthea_cohort,
+    generation_runner: Callable[
+        [SyntheaGenerationConfig], object
+    ] = generate_synthea_cohort,
 ) -> ProductionRunManifest:
     """Generate one class-specific run and optionally execute frozen Steps 4-6.
 
@@ -570,7 +619,9 @@ def generate_production_run(
     try:
         generation_config = _generation_config(plan, output_root, manifest.run_id)
         production_config = load_production_config()
-        for _attempt in range(1, production_config.max_attempts + 1):  # pragma: no branch
+        for _attempt in range(
+            1, production_config.max_attempts + 1
+        ):  # pragma: no branch
             try:
                 generation_runner(generation_config)
                 break
@@ -587,7 +638,9 @@ def generate_production_run(
                         "Steps 1-3 generation failed after "
                         f"{_attempt} attempt(s): {type(error).__name__}: {error}"
                     ) from error
-        manifest.generated_patient_count = len(_read_canonical_dir(run_path / "canonical").patients)
+        manifest.generated_patient_count = len(
+            _read_canonical_dir(run_path / "canonical").patients
+        )
         manifest.batch_records = _load_batch_records(
             run_path, manifest.started_at, generation_config.batch_size
         )
@@ -596,7 +649,9 @@ def generate_production_run(
             _run_frozen_pipeline(
                 run_path,
                 load_production_config().endpoints,
-                hashlib.sha256((run_path / "generation_manifest.json").read_bytes()).hexdigest(),
+                hashlib.sha256(
+                    (run_path / "generation_manifest.json").read_bytes()
+                ).hexdigest(),
             )
             manifest.cohort_status = "created"
             manifest.split_status = "created"
@@ -621,6 +676,13 @@ def generate_configured_production_runs(
     """Execute all enabled configured plans independently; never pool classes."""
     config = load_production_config()
     if not config.enabled or not config.simulation_only:
-        raise ValueError("Production generation must be enabled in simulation-only mode")
-    root = output_root or Path(str(load_config()["synthea"]["output_root"])) / "production"
-    return [generate_production_run(plan, root, run_pipeline=run_pipeline) for plan in config.plans]
+        raise ValueError(
+            "Production generation must be enabled in simulation-only mode"
+        )
+    root = (
+        output_root or Path(str(load_config()["synthea"]["output_root"])) / "production"
+    )
+    return [
+        generate_production_run(plan, root, run_pipeline=run_pipeline)
+        for plan in config.plans
+    ]

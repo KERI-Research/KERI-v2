@@ -43,7 +43,9 @@ from metaboguard.features.dictionary import (
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "synthea_one_patient"
 
 
-def _boundary_fixture(tmp_path: Path, *, days_before: int = 1, code: str = "8302-2") -> Path:
+def _boundary_fixture(
+    tmp_path: Path, *, days_before: int = 1, code: str = "8302-2"
+) -> Path:
     raw_dir = tmp_path / "synthea_boundary"
     shutil.copytree(FIXTURE, raw_dir)
     patients_path = raw_dir / "patients.csv"
@@ -114,7 +116,9 @@ def test_fixture_conversion_is_clean_and_reports_dropped_code() -> None:
     report = validate(dataset)
     assert report.passed
     assert report.dropped_loinc_codes == {"99999-9": 1}
-    missingness_check = next(check for check in report.checks if check.name == "missingness_rate")
+    missingness_check = next(
+        check for check in report.checks if check.name == "missingness_rate"
+    )
     assert missingness_check.status == "warning"
     assert missingness_check.passed is True
     assert missingness_check.warning_count == 1
@@ -133,7 +137,10 @@ def test_fixture_conversion_is_clean_and_reports_dropped_code() -> None:
     assert json_missingness["status"] == "warning"
     assert json_missingness["passed"] is True
     assert json_missingness["warning_count"] == 1
-    assert report_json["report_path"] == "artifacts/validation/dataset_validation_report.json"
+    assert (
+        report_json["report_path"]
+        == "artifacts/validation/dataset_validation_report.json"
+    )
 
 
 @pytest.mark.skipif(
@@ -153,7 +160,9 @@ def test_conversion_is_byte_deterministic() -> None:
     reason="Skip on GitHub Actions",
 )
 def test_synthea_birth_boundary_is_normalized_and_audited(tmp_path: Path) -> None:
-    dataset = to_canonical(_boundary_fixture(tmp_path), source="synthea", source_version="4.0.0")
+    dataset = to_canonical(
+        _boundary_fixture(tmp_path), source="synthea", source_version="4.0.0"
+    )
     assert len(dataset.date_normalisation_audit) == 1
     audit = dataset.date_normalisation_audit[0]
     assert audit["original_event_date"] == "2015-01-15"
@@ -214,7 +223,9 @@ def test_birth_boundary_normalization_is_byte_deterministic(tmp_path: Path) -> N
     second_dir = _boundary_fixture(tmp_path / "second")
     first = to_canonical(first_dir, source="synthea", source_version="4.0.0")
     second = to_canonical(second_dir, source="synthea", source_version="4.0.0")
-    assert first.date_normalisation_audit_sha256 == second.date_normalisation_audit_sha256
+    assert (
+        first.date_normalisation_audit_sha256 == second.date_normalisation_audit_sha256
+    )
     assert (first.output_dir / "date_normalisation_audit.json").read_bytes() == (  # type: ignore[union-attr]
         second.output_dir / "date_normalisation_audit.json"  # type: ignore[union-attr]
     ).read_bytes()
@@ -331,7 +342,9 @@ def test_denylist_rejection() -> None:
         ("10*3/uL", "10^9/L", 250.0, 250.0),
     ],
 )
-def test_unit_conversions(source: str, canonical: str, value: float, expected: float) -> None:
+def test_unit_conversions(
+    source: str, canonical: str, value: float, expected: float
+) -> None:
     feature = {
         ("mmol/L", "mg/dL"): "glucose",
         ("mmol/mol", "%"): "hba1c",
@@ -341,7 +354,9 @@ def test_unit_conversions(source: str, canonical: str, value: float, expected: f
         ("kg/m2", "kg/m^2"): "bmi",
         ("10*3/uL", "10^9/L"): "platelets",
     }[(source, canonical)]
-    assert convert_unit(feature, value, source, canonical) == pytest.approx(expected, abs=0.001)
+    assert convert_unit(feature, value, source, canonical) == pytest.approx(
+        expected, abs=0.001
+    )
 
 
 @pytest.mark.skipif(
@@ -396,7 +411,9 @@ def _creatinine_fixture(tmp_path: Path, value: str = "97.1") -> Path:
 def test_synthea_micromolar_creatinine_is_normalised_and_audited(
     tmp_path: Path,
 ) -> None:
-    dataset = to_canonical(_creatinine_fixture(tmp_path), source="synthea", source_version="4.0.0")
+    dataset = to_canonical(
+        _creatinine_fixture(tmp_path), source="synthea", source_version="4.0.0"
+    )
     assert len(dataset.unit_normalisation_audit) == 1
     audit = dataset.unit_normalisation_audit[0]
     assert audit["original_value"] == 97.1
@@ -450,7 +467,9 @@ def test_synthea_out_of_range_observation_becomes_audited_missing_value(
         writer.writerows(observations)
 
     dataset = to_canonical(raw_dir, source="synthea", source_version="4.0.0")
-    event = next(event for event in dataset.events if event.feature_name == "diastolic_bp")
+    event = next(
+        event for event in dataset.events if event.feature_name == "diastolic_bp"
+    )
     report = json.loads(
         (dataset.output_dir / "conversion_report.json").read_text(encoding="utf-8")  # type: ignore[union-attr]
     )
@@ -497,7 +516,9 @@ def test_canonical_mapping_helpers_cover_unknown_values() -> None:
     sys.platform == "linux" and "GITHUB_ACTIONS" in os.environ,
     reason="Skip on GitHub Actions",
 )
-def test_missing_input_files_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_input_files_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     with pytest.raises(FileNotFoundError):
         _read_csv(tmp_path, "patients")
     monkeypatch.chdir(tmp_path)
@@ -513,14 +534,20 @@ def test_schema_event_governance_branches() -> None:
     with pytest.raises(ValidationError):
         ClinicalEvent(**_event(is_missing=False, value=None).model_dump())
     with pytest.raises(ValidationError):
-        ClinicalEvent(**_event(provenance="augmented", augmentation_module=None).model_dump())
-    with pytest.raises(ValidationError):
         ClinicalEvent(
-            **_event(provenance="synthea_native", augmentation_module="insulin").model_dump()
+            **_event(provenance="augmented", augmentation_module=None).model_dump()
         )
     with pytest.raises(ValidationError):
         ClinicalEvent(
-            **_event(feature_name="ca_19_9", unit="U/mL", provenance="synthea_native").model_dump()
+            **_event(
+                provenance="synthea_native", augmentation_module="insulin"
+            ).model_dump()
+        )
+    with pytest.raises(ValidationError):
+        ClinicalEvent(
+            **_event(
+                feature_name="ca_19_9", unit="U/mL", provenance="synthea_native"
+            ).model_dump()
         )
     with pytest.raises(ValidationError):
         ClinicalEvent(**_event(unit="mmol/L").model_dump())
@@ -531,7 +558,9 @@ def test_schema_event_governance_branches() -> None:
     reason="Skip on GitHub Actions",
 )
 def test_referential_integrity() -> None:
-    _check_fails(_invalid_dataset(events=[_event(patient_id="missing")]), "referential_integrity")
+    _check_fails(
+        _invalid_dataset(events=[_event(patient_id="missing")]), "referential_integrity"
+    )
 
 
 @pytest.mark.skipif(
@@ -539,7 +568,9 @@ def test_referential_integrity() -> None:
     reason="Skip on GitHub Actions",
 )
 def test_chronology() -> None:
-    _check_fails(_invalid_dataset(events=[_event(event_date=date(1970, 1, 1))]), "chronology")
+    _check_fails(
+        _invalid_dataset(events=[_event(event_date=date(1970, 1, 1))]), "chronology"
+    )
 
 
 @pytest.mark.skipif(
@@ -571,10 +602,14 @@ def test_plausible_ranges() -> None:
         events=[_event(feature_name="systolic_bp", value=20.0, unit="mmHg")]
     )
     report = validate(accepted)
-    systolic = next(check for check in report.checks if check.name == "plausible_ranges")
+    systolic = next(
+        check for check in report.checks if check.name == "plausible_ranges"
+    )
     assert systolic.passed
     _check_fails(
-        _invalid_dataset(events=[_event(feature_name="systolic_bp", value=19.0, unit="mmHg")]),
+        _invalid_dataset(
+            events=[_event(feature_name="systolic_bp", value=19.0, unit="mmHg")]
+        ),
         "plausible_ranges",
     )
 
@@ -604,7 +639,9 @@ def test_units() -> None:
 )
 def test_validation_denylist() -> None:
     _check_fails(
-        _invalid_dataset(events=[_event(feature_name="tumour_stage", unit="coded", value=0.0)]),
+        _invalid_dataset(
+            events=[_event(feature_name="tumour_stage", unit="coded", value=0.0)]
+        ),
         "denylist",
     )
 
@@ -615,7 +652,9 @@ def test_validation_denylist() -> None:
 )
 def test_augmentation_module() -> None:
     _check_fails(
-        _invalid_dataset(events=[_event(provenance="augmented", augmentation_module="unknown")]),
+        _invalid_dataset(
+            events=[_event(provenance="augmented", augmentation_module="unknown")]
+        ),
         "augmentation_module",
     )
 
@@ -625,7 +664,9 @@ def test_augmentation_module() -> None:
     reason="Skip on GitHub Actions",
 )
 def test_diabetes_onset_after_birth() -> None:
-    condition = _dataset().conditions[0].model_copy(update={"onset_date": date(1900, 1, 1)})
+    condition = (
+        _dataset().conditions[0].model_copy(update={"onset_date": date(1900, 1, 1)})
+    )
     _check_fails(_invalid_dataset(conditions=[condition]), "diabetes_onset_after_birth")
 
 
@@ -637,7 +678,9 @@ def test_cancer_site() -> None:
     condition = (
         _dataset()
         .conditions[1]
-        .model_construct(**{**_dataset().conditions[1].model_dump(), "cancer_site": None})
+        .model_construct(
+            **{**_dataset().conditions[1].model_dump(), "cancer_site": None}
+        )
     )
     _check_fails(_invalid_dataset(conditions=[condition]), "cancer_site")
 

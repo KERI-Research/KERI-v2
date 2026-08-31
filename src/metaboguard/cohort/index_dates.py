@@ -75,7 +75,9 @@ def generate_rolling_index_dates(
         while index_date <= final_date:
             if endpoint_date is not None and index_date >= endpoint_date:
                 break
-            history = [event for event in patient_events if event.event_date <= index_date]
+            history = [
+                event for event in patient_events if event.event_date <= index_date
+            ]
             reason = _index_reason(
                 dataset,
                 endpoint,

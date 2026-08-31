@@ -60,8 +60,12 @@ def cohort_dataset() -> CanonicalDataset:
     ]
     events = []
     for patient_id in [patient.patient_id for patient in patients]:
-        events.extend([_event(patient_id, date(2015, 1, 1)), _event(patient_id, date(2016, 1, 1))])
-    events.extend([_event("p-positive", date(2019, 1, 1)), _event("p-negative", date(2020, 1, 1))])
+        events.extend(
+            [_event(patient_id, date(2015, 1, 1)), _event(patient_id, date(2016, 1, 1))]
+        )
+    events.extend(
+        [_event("p-positive", date(2019, 1, 1)), _event("p-negative", date(2020, 1, 1))]
+    )
     conditions = [
         ConditionRecord(
             patient_id="p-positive",

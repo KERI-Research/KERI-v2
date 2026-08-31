@@ -100,7 +100,9 @@ def audit_feature_leakage(run_path: Path, endpoint_id: str) -> LeakageReadinessR
             "offending_count": len(unknown),
         }
     )
-    manifest = json.loads((features / "feature_manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (features / "feature_manifest.json").read_text(encoding="utf-8")
+    )
     checks.append(
         {
             "name": "simulation_only",
@@ -115,9 +117,7 @@ def audit_feature_leakage(run_path: Path, endpoint_id: str) -> LeakageReadinessR
     feature_build_status = (
         "complete"
         if len(matrix) == len(eligible_indexes)
-        else "partial"
-        if len(matrix) < len(eligible_indexes)
-        else "unknown"
+        else "partial" if len(matrix) < len(eligible_indexes) else "unknown"
     )
     return LeakageReadinessReport(
         passed=all(bool(check["passed"]) for check in checks),

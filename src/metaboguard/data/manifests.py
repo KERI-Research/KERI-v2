@@ -72,7 +72,9 @@ def assert_dataset_class(dataset: CanonicalDataset, cohort_class: str) -> None:
     """Require a dataset's attached class metadata to match an operation."""
     dataset_class = getattr(dataset, "cohort_class", None)
     if dataset_class is not None and dataset_class != cohort_class:
-        raise CohortClassMismatchError(f"Expected {cohort_class}, received {dataset_class}")
+        raise CohortClassMismatchError(
+            f"Expected {cohort_class}, received {dataset_class}"
+        )
 
 
 @dataclass(slots=True)

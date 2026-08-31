@@ -47,7 +47,9 @@ class RobustPCAEncoderConfig:
             or self.latent_distance_weight < 0
             or self.reconstruction_weight + self.latent_distance_weight != 1
         ):
-            raise ValueError("deviation score weights must be non-negative and sum to 1")
+            raise ValueError(
+                "deviation score weights must be non-negative and sum to 1"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,7 +68,10 @@ def _authorize_research_fit(capability_report: dict[str, Any]) -> None:
         raise ResearchModelAuthorizationError(
             "Research model fitting is forbidden for simulation-only artifacts"
         )
-    if capability_report.get("overall_decision") != "eligible_for_future_model_research":
+    if (
+        capability_report.get("overall_decision")
+        != "eligible_for_future_model_research"
+    ):
         raise ResearchModelAuthorizationError(
             "Research model fitting requires eligible_for_future_model_research"
         )
@@ -108,7 +113,9 @@ class RobustPCAEncoder:
         if "simulation_only" not in feature_matrix:
             raise ValueError("synthetic prototype matrix must declare simulation_only")
         if not feature_matrix["simulation_only"].eq(True).all():
-            raise ValueError("synthetic prototype matrix must contain only synthetic rows")
+            raise ValueError(
+                "synthetic prototype matrix must contain only synthetic rows"
+            )
         _ = authorization
         return self._fit_training_features(feature_matrix)
 
@@ -118,23 +125,31 @@ class RobustPCAEncoder:
         if not feature_matrix["split"].eq("train").all():
             raise ValueError("unsupervised fitting accepts train split rows only")
         self._feature_columns = [
-            column for column in feature_matrix.columns if column not in IDENTIFIER_COLUMNS
+            column
+            for column in feature_matrix.columns
+            if column not in IDENTIFIER_COLUMNS
         ]
         if not self._feature_columns:
             raise ValueError("feature matrix has no trainable feature columns")
         forbidden = [
             column
             for column in self._feature_columns
-            if any(token in column.lower() for token in ("label", "outcome", "diagnosis"))
+            if any(
+                token in column.lower() for token in ("label", "outcome", "diagnosis")
+            )
         ]
         if forbidden:
-            raise ValueError(f"feature matrix includes prohibited outcome columns: {forbidden}")
+            raise ValueError(
+                f"feature matrix includes prohibited outcome columns: {forbidden}"
+            )
         features = feature_matrix[self._feature_columns]
         numeric_columns = list(features.select_dtypes(include=[np.number]).columns)
         categorical_columns = [
             column for column in self._feature_columns if column not in numeric_columns
         ]
-        numeric_columns = [column for column in numeric_columns if features[column].notna().any()]
+        numeric_columns = [
+            column for column in numeric_columns if features[column].notna().any()
+        ]
         categorical_columns = [
             column for column in categorical_columns if features[column].notna().any()
         ]
@@ -174,7 +189,9 @@ class RobustPCAEncoder:
         if not transformers:
             raise ValueError("feature matrix has no usable feature columns")
         self._preprocessor = ColumnTransformer(transformers, sparse_threshold=0.0)
-        transformed = np.asarray(self._preprocessor.fit_transform(features), dtype=float)
+        transformed = np.asarray(
+            self._preprocessor.fit_transform(features), dtype=float
+        )
         max_dimensions = min(transformed.shape)
         if self.config.latent_dimensions > max_dimensions:
             raise ValueError(
@@ -185,8 +202,8 @@ class RobustPCAEncoder:
         embedding = self._pca.fit_transform(transformed)
         self._latent_center = np.median(embedding, axis=0)
         reconstruction, distance = self._raw_scores(transformed, embedding)
-        self._reconstruction_center, self._reconstruction_scale = _robust_location_scale(
-            reconstruction
+        self._reconstruction_center, self._reconstruction_scale = (
+            _robust_location_scale(reconstruction)
         )
         self._distance_center, self._distance_scale = _robust_location_scale(distance)
         self._reference_scores = self._combine_scores(reconstruction, distance)
@@ -200,7 +217,9 @@ class RobustPCAEncoder:
             raise RuntimeError("encoder reference distribution is unavailable")
         missing = set(self._feature_columns).difference(feature_matrix.columns)
         if missing:
-            raise ValueError(f"feature matrix is missing fitted columns: {sorted(missing)}")
+            raise ValueError(
+                f"feature matrix is missing fitted columns: {sorted(missing)}"
+            )
         transformed = np.asarray(
             self._preprocessor.transform(self._prepare_features(feature_matrix)),
             dtype=float,
@@ -239,7 +258,9 @@ class RobustPCAEncoder:
         latent_distance = np.linalg.norm(embedding - self._latent_center, axis=1)
         return reconstruction_error, latent_distance
 
-    def _combine_scores(self, reconstruction: np.ndarray, distance: np.ndarray) -> np.ndarray:
+    def _combine_scores(
+        self, reconstruction: np.ndarray, distance: np.ndarray
+    ) -> np.ndarray:
         return self.config.reconstruction_weight * (
             (reconstruction - self._reconstruction_center) / self._reconstruction_scale
         ) + self.config.latent_distance_weight * (

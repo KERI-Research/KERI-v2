@@ -29,7 +29,9 @@ def build_splits(cohort: ConstructedCohort, split_config: SplitConfig) -> SplitM
     validation_end = train_end + int(len(shuffled) * split_config.validation_fraction)
     assignments = {
         patient_id: (
-            "train" if index < train_end else "validation" if index < validation_end else "test"
+            "train"
+            if index < train_end
+            else "validation" if index < validation_end else "test"
         )
         for index, patient_id in enumerate(shuffled)
     }
@@ -74,7 +76,9 @@ def build_splits(cohort: ConstructedCohort, split_config: SplitConfig) -> SplitM
         temporal_cutoff=cutoff,
         quantile_fallback_used=fallback,
         assignments=assignments,
-        patient_fingerprints={patient_id: _fingerprint(patient_id) for patient_id in patient_ids},
+        patient_fingerprints={
+            patient_id: _fingerprint(patient_id) for patient_id in patient_ids
+        },
         counts={"patients": len(patient_ids), "labels_by_split": label_counts},
         cohort_hash=cohort.source_canonical_sha256,
         protocol_hash=hashlib.sha256(
@@ -83,7 +87,9 @@ def build_splits(cohort: ConstructedCohort, split_config: SplitConfig) -> SplitM
     )
 
 
-def write_split_artifacts(split: SplitManifest, labels: list[object], output_dir: Path) -> None:
+def write_split_artifacts(
+    split: SplitManifest, labels: list[object], output_dir: Path
+) -> None:
     """Write split assignments and a fingerprint-only manifest."""
     output_dir.mkdir(parents=True, exist_ok=True)
     rows = [

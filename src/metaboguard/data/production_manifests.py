@@ -113,7 +113,9 @@ def new_production_manifest(
     """Create an immutable production-run manifest before generation starts."""
     configuration_hash = config_sha256(configuration)
     return ProductionRunManifest(
-        run_id=production_run_id(cohort_class, population_target, root_seed, configuration_hash),
+        run_id=production_run_id(
+            cohort_class, population_target, root_seed, configuration_hash
+        ),
         cohort_class=cohort_class,
         population_target=population_target,
         root_seed=root_seed,

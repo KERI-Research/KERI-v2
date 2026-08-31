@@ -99,8 +99,6 @@ def _build_run(
         "p8": "temporal_holdout",
         "p9": "temporal_holdout",
     }
-    if break_isolation:
-        assignments["p2"] = "validation"
     split_manifest = {
         "cohort_class": "ordinary_incidence",
         "endpoint_id": endpoint_id,
@@ -171,6 +169,11 @@ def _build_run(
                 "label_state": states[patient_id],
             }
         )
+    if break_isolation:
+        duplicate = dict(rows[1])
+        duplicate["index_date"] = "2020-02-01"
+        duplicate["split"] = "validation"
+        rows.append(duplicate)
     pd.DataFrame(rows).to_parquet(feature_dir / "feature_matrix.parquet", index=False)
     pd.DataFrame(labels).to_parquet(
         cohort_dir / f"horizon_labels_{horizon}y.parquet", index=False
@@ -414,3 +417,167 @@ def test_resume_reuses_hash_matched_experiment(tmp_path: Path) -> None:
     )
     assert first["experiment_id"] == second["experiment_id"]
     assert second["resumed"] is True
+
+
+def test_patient_isolation_violation_fails_closed(tmp_path: Path) -> None:
+    run_path = _build_run(tmp_path, break_isolation=True)
+    with pytest.raises(ValueError, match="split assignment mismatch"):
+        run_model_feasibility(
+            run_path,
+            "pancreatic_cancer",
+            3,
+            _auth(),
+            execute=True,
+            artifact_root=tmp_path / "artifacts",
+        )
+
+
+@pytest.mark.parametrize(
+    "forbidden_root",
+    ["artifacts/model_prototypes", "src/metaboguard/serving"],
+)
+def test_artifact_root_cannot_target_prototype_or_serving_paths(
+    tmp_path: Path, forbidden_root: str
+) -> None:
+    run_path = _build_run(tmp_path)
+    with pytest.raises(ValueError, match="serving or generic prototype"):
+        run_model_feasibility(
+            run_path,
+            "pancreatic_cancer",
+            3,
+            _auth(),
+            execute=False,
+            artifact_root=tmp_path / forbidden_root,
+        )
+
+
+def test_artifact_root_cannot_overlap_source_run(tmp_path: Path) -> None:
+    run_path = _build_run(tmp_path)
+    with pytest.raises(ValueError, match="overlap the source run directory"):
+        run_model_feasibility(
+            run_path,
+            "pancreatic_cancer",
+            3,
+            _auth(),
+            execute=False,
+            artifact_root=run_path / "artifacts",
+        )
+
+
+def test_non_synthetic_source_is_rejected_regardless_of_flags(tmp_path: Path) -> None:
+    run_path = _build_run(tmp_path)
+    (run_path / "generation_manifest.json").write_text(
+        json.dumps(
+            {
+                "state": "complete",
+                "synthea_version": "",
+                "jar_sha256": "",
+                "canonical_dataset_sha256": "",
+                "simulation_only": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="Durable Synthea provenance evidence"):
+        run_model_feasibility(
+            run_path,
+            "pancreatic_cancer",
+            3,
+            _auth(),
+            execute=False,
+            artifact_root=tmp_path / "artifacts",
+        )
+
+
+def test_cli_requires_non_empty_approval_reference(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_path = _build_run(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "metaboguard-model-feasibility",
+            str(run_path),
+            "pancreatic_cancer",
+            "--horizon",
+            "3",
+            "--synthetic-feasibility",
+        ],
+    )
+    with pytest.raises(SystemExit):
+        feasibility_cli_main()
+
+
+def test_shortcut_checks_retain_permutation_flag_and_both_ablations(
+    tmp_path: Path,
+) -> None:
+    run_path = _build_run(tmp_path)
+    result = run_model_feasibility(
+        run_path,
+        "pancreatic_cancer",
+        3,
+        _auth(),
+        execute=True,
+        artifact_root=tmp_path / "artifacts",
+    )
+    output_dir = Path(str(result["output_dir"]))
+    shortcuts = json.loads((output_dir / "shortcut_checks.json").read_text())
+    assert "suspicious_similarity_flag" in shortcuts["label_permutation_sanity"]
+    ablation_names = {row["ablation"] for row in shortcuts["feature_ablation"]}
+    assert ablation_names == {
+        "all_allowed_retained_features",
+        "compact_metabolic_laboratory_subset",
+    }
+
+
+def test_forced_write_failure_leaves_no_partial_experiment_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_path = _build_run(tmp_path)
+
+    import metaboguard.models.model_feasibility as feasibility_module
+
+    original_write_json = feasibility_module._atomic_write_json
+
+    def failing_write_json(path: Path, payload: dict) -> None:
+        if path.name == "shortcut_checks.json":
+            raise RuntimeError("forced failure")
+        original_write_json(path, payload)
+
+    monkeypatch.setattr(feasibility_module, "_atomic_write_json", failing_write_json)
+    with pytest.raises(RuntimeError, match="forced failure"):
+        run_model_feasibility(
+            run_path,
+            "pancreatic_cancer",
+            3,
+            _auth(),
+            execute=True,
+            artifact_root=tmp_path / "artifacts",
+        )
+    output_dir = tmp_path / "artifacts"
+    manifests = list(output_dir.rglob("experiment_manifest.json"))
+    assert manifests == []
+    temp_leftovers = list(output_dir.rglob("tmp*")) + [
+        path for path in output_dir.rglob("*") if path.suffix == "" and path.is_file()
+    ]
+    assert temp_leftovers == []
+
+
+def test_no_raw_patient_id_in_manifest_or_reports(tmp_path: Path) -> None:
+    run_path = _build_run(tmp_path)
+    result = run_model_feasibility(
+        run_path,
+        "pancreatic_cancer",
+        3,
+        _auth(),
+        execute=True,
+        artifact_root=tmp_path / "artifacts",
+    )
+    output_dir = Path(str(result["output_dir"]))
+    for json_path in output_dir.rglob("*.json"):
+        text = json_path.read_text(encoding="utf-8")
+        for patient_id in ("p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"):
+            assert (
+                patient_id not in text.split()
+            ), f"raw patient id token found in {json_path}"

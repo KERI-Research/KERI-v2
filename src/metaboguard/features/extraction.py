@@ -81,14 +81,17 @@ def extract_features(
         if definition.window_days is not None
     }
     window_names = {
-        days: name for name, days in load_config()["features"]["feature_windows_days"].items()
+        days: name
+        for name, days in load_config()["features"]["feature_windows_days"].items()
     }
     rows: list[dict[str, object]] = []
     lineage: list[dict[str, object]] = []
     events_by_patient: dict[str, list[Any]] = {}
     for event in dataset.events:
         events_by_patient.setdefault(event.patient_id, []).append(event)
-    for index in sorted(indexes, key=lambda record: (record.patient_id, record.index_date)):
+    for index in sorted(
+        indexes, key=lambda record: (record.patient_id, record.index_date)
+    ):
         events = [
             event
             for event in events_by_patient.get(index.patient_id, [])
@@ -193,11 +196,17 @@ def extract_features(
                     "contains_post_index_record": any(
                         event.event_date > index.index_date for event in source_events
                     ),
-                    "source_value_summary_sha256": hashlib.sha256(str(values).encode()).hexdigest(),
+                    "source_value_summary_sha256": hashlib.sha256(
+                        str(values).encode()
+                    ).hexdigest(),
                 }
             )
         rows.append(row)
-        if batch_callback is not None and batch_size is not None and len(rows) >= batch_size:
+        if (
+            batch_callback is not None
+            and batch_size is not None
+            and len(rows) >= batch_size
+        ):
             batch_callback(
                 FeatureDataset(
                     rows,
@@ -217,7 +226,8 @@ def extract_features(
                 lineage,
                 registry,
                 "1.0.0",
-                simulation_only=dataset.cohort_metadata.get("simulation_only", True) is not False,
+                simulation_only=dataset.cohort_metadata.get("simulation_only", True)
+                is not False,
             )
         )
         rows = []

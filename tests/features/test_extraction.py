@@ -15,7 +15,9 @@ def test_extraction_is_future_blind(feature_dataset, feature_index) -> None:
     assert all("outcome" not in key.lower() for key in row)
 
 
-def test_feature_extraction_flushes_bounded_batches(feature_dataset, feature_index) -> None:
+def test_feature_extraction_flushes_bounded_batches(
+    feature_dataset, feature_index
+) -> None:
     batches = []
     result = extract_features(
         feature_dataset,
@@ -29,7 +31,9 @@ def test_feature_extraction_flushes_bounded_batches(feature_dataset, feature_ind
     assert batches[0].rows[0]["patient_id"] == "p1"
 
 
-def test_feature_extraction_flushes_final_partial_batch(feature_dataset, feature_index) -> None:
+def test_feature_extraction_flushes_final_partial_batch(
+    feature_dataset, feature_index
+) -> None:
     batches = []
     result = extract_features(
         feature_dataset,
@@ -43,9 +47,13 @@ def test_feature_extraction_flushes_final_partial_batch(feature_dataset, feature
     assert batches[0].rows[0]["patient_id"] == "p1"
 
 
-def test_feature_extraction_rejects_nonpositive_batch_size(feature_dataset, feature_index) -> None:
+def test_feature_extraction_rejects_nonpositive_batch_size(
+    feature_dataset, feature_index
+) -> None:
     with pytest.raises(ValueError, match="batch_size"):
-        extract_features(feature_dataset, [feature_index], {"p1": "train"}, batch_size=0)
+        extract_features(
+            feature_dataset, [feature_index], {"p1": "train"}, batch_size=0
+        )
 
 
 def test_unknown_registry_family_fails_to_null_without_future_data(
@@ -53,7 +61,9 @@ def test_unknown_registry_family_fails_to_null_without_future_data(
 ) -> None:
     result = extract_features(feature_dataset, [feature_index], {"p1": "train"})
     definition = next(iter(result.registry.values()))
-    custom = {"custom": replace(definition, feature_id="custom", feature_family="unknown")}
+    custom = {
+        "custom": replace(definition, feature_id="custom", feature_family="unknown")
+    }
     result = extract_features(feature_dataset, [feature_index], {"p1": "train"})
     result.registry.update(custom)
     assert result.registry["custom"].feature_family == "unknown"

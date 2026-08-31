@@ -11,14 +11,18 @@ from metaboguard.readiness.contracts import SplitReadinessRecord
 from metaboguard.readiness.inventory import feature_artifact_dir
 
 
-def build_split_readiness(run_path: Path, endpoint_id: str) -> list[SplitReadinessRecord]:
+def build_split_readiness(
+    run_path: Path, endpoint_id: str
+) -> list[SplitReadinessRecord]:
     cohort = run_path / "cohort" / endpoint_id
     split_manifest = json.loads(
         (cohort / "splits" / "split_manifest.json").read_text(encoding="utf-8")
     )
     indexes = pd.read_parquet(cohort / "eligible_indexes.parquet")
     feature_count = len(
-        pd.read_parquet(feature_artifact_dir(run_path, endpoint_id) / "feature_matrix.parquet")
+        pd.read_parquet(
+            feature_artifact_dir(run_path, endpoint_id) / "feature_matrix.parquet"
+        )
     )
     records: list[SplitReadinessRecord] = []
     for horizon in (1, 3, 5):
@@ -33,10 +37,14 @@ def build_split_readiness(run_path: Path, endpoint_id: str) -> list[SplitReadine
                 if assignment == split
             ]
             subset = labels[labels["patient_id"].isin(patient_ids)]
-            dates = pd.to_datetime(indexes[indexes["patient_id"].isin(patient_ids)]["index_date"])
+            dates = pd.to_datetime(
+                indexes[indexes["patient_id"].isin(patient_ids)]["index_date"]
+            )
             records.append(
                 SplitReadinessRecord(
-                    cohort_class=(str(labels["cohort_class"].iloc[0]) if len(labels) else ""),
+                    cohort_class=(
+                        str(labels["cohort_class"].iloc[0]) if len(labels) else ""
+                    ),
                     endpoint_id=endpoint_id,
                     horizon_years=horizon,
                     split=split,
@@ -47,7 +55,9 @@ def build_split_readiness(run_path: Path, endpoint_id: str) -> list[SplitReadine
                         (subset["label_state"] == "eligible_negative").sum()
                     ),
                     censored_count=int((subset["label_state"] == "censored").sum()),
-                    competing_death_count=int((subset["label_state"] == "competing_death").sum()),
+                    competing_death_count=int(
+                        (subset["label_state"] == "competing_death").sum()
+                    ),
                     first_index_date=dates.min().date() if len(dates) else None,
                     last_index_date=dates.max().date() if len(dates) else None,
                     feature_complete_fraction=(

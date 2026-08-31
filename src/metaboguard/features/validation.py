@@ -31,7 +31,9 @@ class FeatureValidationReport:
         return asdict(self)
 
 
-def _check(name: str, level: str, count: int, ids: list[str], message: str = "") -> FeatureCheck:
+def _check(
+    name: str, level: str, count: int, ids: list[str], message: str = ""
+) -> FeatureCheck:
     warning = level == "warning"
     return FeatureCheck(
         name,
@@ -53,7 +55,11 @@ def validate_feature_dataset(
 ) -> FeatureValidationReport:
     """Validate feature rows and lineage without accepting outcome labels."""
     checks: list[FeatureCheck] = []
-    future = [str(item["patient_id"]) for item in lineage if item["contains_post_index_record"]]
+    future = [
+        str(item["patient_id"])
+        for item in lineage
+        if item["contains_post_index_record"]
+    ]
     checks.append(_check("no_post_index_lineage", "error", len(future), future))
     unknown = [
         key
@@ -62,8 +68,12 @@ def validate_feature_dataset(
         if key not in IDENTIFIER_COLUMNS and key not in registry
     ]
     checks.append(_check("registry_completeness", "error", len(unknown), []))
-    missing_splits = [str(row["patient_id"]) for row in feature_matrix.rows if not row.get("split")]
-    checks.append(_check("assigned_split", "error", len(missing_splits), missing_splits))
+    missing_splits = [
+        str(row["patient_id"]) for row in feature_matrix.rows if not row.get("split")
+    ]
+    checks.append(
+        _check("assigned_split", "error", len(missing_splits), missing_splits)
+    )
     forbidden = [
         key
         for row in feature_matrix.rows
@@ -82,7 +92,9 @@ def validate_feature_dataset(
     ]
     checks.append(_check("no_outcome_columns", "error", len(forbidden), []))
     classes = {str(row["cohort_class"]) for row in feature_matrix.rows}
-    checks.append(_check("single_cohort_class", "error", len(classes) - 1 if classes else 0, []))
+    checks.append(
+        _check("single_cohort_class", "error", len(classes) - 1 if classes else 0, [])
+    )
     warnings = [
         _check(
             "feature_missingness",

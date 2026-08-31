@@ -9,7 +9,9 @@ import pandas as pd  # type: ignore[import-untyped]
 from metaboguard.readiness.contracts import LabelFeasibilityRecord
 
 
-def build_label_feasibility(run_path: Path, endpoint_id: str) -> list[LabelFeasibilityRecord]:
+def build_label_feasibility(
+    run_path: Path, endpoint_id: str
+) -> list[LabelFeasibilityRecord]:
     """Count frozen labels without constructing targets or feature inputs."""
     cohort = run_path / "cohort" / endpoint_id
     split_manifest = pd.read_parquet(cohort / "splits" / "split_assignments.parquet")
@@ -34,7 +36,9 @@ def build_label_feasibility(run_path: Path, endpoint_id: str) -> list[LabelFeasi
                 horizon_years=horizon,
                 split=split,
                 total_labelled_indexes=len(labels),
-                unique_patient_count=(int(labels["patient_id"].nunique()) if len(labels) else 0),
+                unique_patient_count=(
+                    int(labels["patient_id"].nunique()) if len(labels) else 0
+                ),
                 positive_count=positive,
                 eligible_negative_count=negative,
                 censored_count=int(counts.get("censored", 0)),

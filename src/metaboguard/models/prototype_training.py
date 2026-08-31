@@ -41,7 +41,9 @@ def _atomic_write_text(path: Path, content: str) -> None:
 
 def _atomic_write_pickle(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent, delete=False) as temporary:
+    with tempfile.NamedTemporaryFile(
+        mode="wb", dir=path.parent, delete=False
+    ) as temporary:
         pickle.dump(payload, temporary)
         temporary_path = Path(temporary.name)
     os.replace(temporary_path, path)
@@ -159,7 +161,9 @@ def main() -> int:
     parser.add_argument("run_path", type=Path)
     parser.add_argument("endpoint_id")
     parser.add_argument("--approval-reference", required=True)
-    parser.add_argument("--artifact-root", type=Path, default=Path("artifacts/model_prototypes"))
+    parser.add_argument(
+        "--artifact-root", type=Path, default=Path("artifacts/model_prototypes")
+    )
     args = parser.parse_args()
     print(
         json.dumps(

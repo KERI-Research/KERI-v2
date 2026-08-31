@@ -31,7 +31,9 @@ def build_readiness_bundle(run_path: Path, endpoint_id: str) -> dict[str, object
     splits = build_split_readiness(run_path, endpoint_id)
     leakage = audit_feature_leakage(run_path, endpoint_id)
     decisions = build_capability_decisions(inventory, labels, features, splits, leakage)
-    validation = validate_readiness_bundle(inventory, labels, features, splits, leakage, decisions)
+    validation = validate_readiness_bundle(
+        inventory, labels, features, splits, leakage, decisions
+    )
     for name, rows in (
         ("label_feasibility", labels),
         ("feature_availability", features),
@@ -41,7 +43,9 @@ def build_readiness_bundle(run_path: Path, endpoint_id: str) -> dict[str, object
             out / f"{name}.parquet", index=False
         )
     inventory_path = out / "artifact_inventory.json"
-    inventory_path.write_text(inventory.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    inventory_path.write_text(
+        inventory.model_dump_json(indent=2) + "\n", encoding="utf-8"
+    )
     leakage_path = out / "leakage_readiness.json"
     leakage_path.write_text(leakage.model_dump_json(indent=2) + "\n", encoding="utf-8")
     overall_decision = (
@@ -52,7 +56,8 @@ def build_readiness_bundle(run_path: Path, endpoint_id: str) -> dict[str, object
             if any(item.decision == "not_eligible" for item in decisions)
             else (
                 "prototype_ready"
-                if decisions and all(item.decision == "prototype_ready" for item in decisions)
+                if decisions
+                and all(item.decision == "prototype_ready" for item in decisions)
                 else "eligible_for_future_model_research"
             )
         )
@@ -75,9 +80,13 @@ def build_readiness_bundle(run_path: Path, endpoint_id: str) -> dict[str, object
         "readiness_validation": validation.model_dump(),
     }
     report_path = out / "capability_report.json"
-    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    report_path.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     validation_path = out / "readiness_validation_report.json"
-    validation_path.write_text(validation.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    validation_path.write_text(
+        validation.model_dump_json(indent=2) + "\n", encoding="utf-8"
+    )
     manifest = {
         "report_version": "1.0.0",
         "cohort_class": inventory.cohort_class,

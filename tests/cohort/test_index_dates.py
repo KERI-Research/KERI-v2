@@ -4,7 +4,9 @@ from datetime import date
 from metaboguard.cohort.index_dates import generate_rolling_index_dates
 
 
-def test_rolling_indexes_are_deterministic_and_preindex(cohort_dataset, diabetes_endpoint) -> None:
+def test_rolling_indexes_are_deterministic_and_preindex(
+    cohort_dataset, diabetes_endpoint
+) -> None:
     first = generate_rolling_index_dates(cohort_dataset, diabetes_endpoint)
     second = generate_rolling_index_dates(cohort_dataset, diabetes_endpoint)
     assert first == second
@@ -12,16 +14,22 @@ def test_rolling_indexes_are_deterministic_and_preindex(cohort_dataset, diabetes
     assert all(max(index.preindex_event_dates) <= index.index_date for index in first)
     assert all(index.index_source == "rolling_365d" for index in first)
     assert all(
-        index.index_date != date(2019, 1, 1) for index in first if index.patient_id == "p-positive"
+        index.index_date != date(2019, 1, 1)
+        for index in first
+        if index.patient_id == "p-positive"
     )
 
 
-def test_pancreatic_endpoint_stops_at_onset(cohort_dataset, pancreatic_endpoint) -> None:
+def test_pancreatic_endpoint_stops_at_onset(
+    cohort_dataset, pancreatic_endpoint
+) -> None:
     from metaboguard.cohort.index_dates import generate_rolling_index_dates
 
     indexes = generate_rolling_index_dates(cohort_dataset, pancreatic_endpoint)
     assert all(
-        index.index_date < date(2020, 1, 1) for index in indexes if index.patient_id == "p-positive"
+        index.index_date < date(2020, 1, 1)
+        for index in indexes
+        if index.patient_id == "p-positive"
     )
 
 
@@ -33,7 +41,9 @@ def test_indexes_skip_patients_without_events_and_stop_after_death(
     empty_patient = Patient(
         patient_id="p-empty", birth_date=date(1980, 1, 1), sex="male", ethnicity="x"
     )
-    changed = replace(cohort_dataset, patients=[*cohort_dataset.patients, empty_patient])
+    changed = replace(
+        cohort_dataset, patients=[*cohort_dataset.patients, empty_patient]
+    )
     indexes = generate_rolling_index_dates(changed, diabetes_endpoint)
     assert all(index.patient_id != "p-empty" for index in indexes)
     assert all(
@@ -61,7 +71,9 @@ def test_indexes_skip_patients_without_events_and_stop_after_death(
             if condition.patient_id != "p-competing"
         ],
     )
-    indexes_without_endpoint = generate_rolling_index_dates(without_endpoint, diabetes_endpoint)
+    indexes_without_endpoint = generate_rolling_index_dates(
+        without_endpoint, diabetes_endpoint
+    )
     assert all(
         index.index_date <= date(2018, 6, 1)
         for index in indexes_without_endpoint

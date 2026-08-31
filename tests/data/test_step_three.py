@@ -114,7 +114,9 @@ def test_augmentation_is_seeded_and_preserves_provenance() -> None:
         assert [event.model_dump() for event in first.dataset.events] == [
             event.model_dump() for event in second.dataset.events
         ]
-        generated = [event for event in first.dataset.events if event.provenance == "augmented"]
+        generated = [
+            event for event in first.dataset.events if event.provenance == "augmented"
+        ]
         assert generated
         assert all(event.augmentation_module for event in generated)
         assert first.assumptions["module_version"] == "1.0.0"
@@ -127,7 +129,9 @@ def test_augmentation_is_seeded_and_preserves_provenance() -> None:
 def test_augmentation_ignores_labels_and_future_events() -> None:
     dataset = to_canonical(FIXTURE)
     baseline = augment_ca19_9(dataset, np.random.default_rng(23), 23)
-    shuffled = replace(dataset, conditions=list(reversed(dataset.conditions)), outcomes=[])
+    shuffled = replace(
+        dataset, conditions=list(reversed(dataset.conditions)), outcomes=[]
+    )
     without_future = replace(
         dataset,
         events=[event for event in dataset.events if event.event_date.year < 2022],
@@ -135,7 +139,9 @@ def test_augmentation_ignores_labels_and_future_events() -> None:
     shuffled_result = augment_ca19_9(shuffled, np.random.default_rng(23), 23)
     earlier_result = augment_ca19_9(without_future, np.random.default_rng(23), 23)
     baseline_earlier = [
-        event.model_dump() for event in baseline.dataset.events if event.event_date.year < 2022
+        event.model_dump()
+        for event in baseline.dataset.events
+        if event.event_date.year < 2022
     ]
     assert baseline_earlier == [
         event.model_dump()
@@ -143,7 +149,9 @@ def test_augmentation_ignores_labels_and_future_events() -> None:
         if event.event_date.year < 2022
     ]
     assert [
-        event.model_dump() for event in baseline.dataset.events if event.provenance == "augmented"
+        event.model_dump()
+        for event in baseline.dataset.events
+        if event.provenance == "augmented"
     ] == [
         event.model_dump()
         for event in shuffled_result.dataset.events
@@ -159,8 +167,12 @@ def test_changed_seed_changes_stochastic_values_with_same_schema() -> None:
     dataset = to_canonical(FIXTURE)
     first = augment_ca19_9(dataset, np.random.default_rng(1), 1).dataset
     second = augment_ca19_9(dataset, np.random.default_rng(2), 2).dataset
-    first_values = [event.value for event in first.events if event.provenance == "augmented"]
-    second_values = [event.value for event in second.events if event.provenance == "augmented"]
+    first_values = [
+        event.value for event in first.events if event.provenance == "augmented"
+    ]
+    second_values = [
+        event.value for event in second.events if event.provenance == "augmented"
+    ]
     assert first_values != second_values
     assert [event.feature_name for event in first.events] == [
         event.feature_name for event in second.events
@@ -184,7 +196,8 @@ def test_smoke_generation_writes_contract_and_deletes_raw(tmp_path: Path) -> Non
     assert (run_dir / "reports" / "date_normalisation_audit.json").exists()
     assert not (run_dir / "raw").exists()
     assert (
-        json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))["state"] == "complete"
+        json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))["state"]
+        == "complete"
     )
     assert manifest.sampling_stratum == "ordinary_incidence"
     assert manifest.inverse_probability_weight_policy
@@ -228,7 +241,9 @@ def test_config_validation_and_java_version_edges(
         stderr = 'openjdk version "21"'
         stdout = ""
 
-    monkeypatch.setattr(runner_module.subprocess, "run", lambda *_args, **_kwargs: Result())
+    monkeypatch.setattr(
+        runner_module.subprocess, "run", lambda *_args, **_kwargs: Result()
+    )
     assert runner_module._java_version("java").startswith("openjdk")
     monkeypatch.setattr(
         runner_module.subprocess,
@@ -267,7 +282,9 @@ def test_java_batch_flattens_synthea_csv_directory(
     assert not exported_dir.exists()
 
 
-def test_java_failure_is_wrapped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_java_failure_is_wrapped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config = _config(tmp_path)
 
     def fail(*_args: object, **_kwargs: object) -> None:
@@ -382,7 +399,10 @@ def test_capability_report_is_simulation_only() -> None:
     assert report.simulation_only is True
     assert report.state == "ready_for_cohort_construction"
     assert report.incident_cancer_count_by_site["pancreas"] == 1
-    assert report.horizon_eligible_event_counts["1"] >= report.horizon_eligible_event_counts["5"]
+    assert (
+        report.horizon_eligible_event_counts["1"]
+        >= report.horizon_eligible_event_counts["5"]
+    )
 
 
 @pytest.mark.skipif(
@@ -404,13 +424,19 @@ def test_capability_empty_and_no_death_edges(tmp_path: Path) -> None:
     assert no_death_report.horizon_eligible_event_counts["1"] == 1
     no_death_report.write(tmp_path / "capability.json")
     assert (tmp_path / "capability.json").exists()
-    unknown_condition = dataset.conditions[1].model_copy(update={"patient_id": "unknown"})
+    unknown_condition = dataset.conditions[1].model_copy(
+        update={"patient_id": "unknown"}
+    )
     unknown_report = build_capability_report(
         replace(dataset, conditions=[unknown_condition]), "ordinary_incidence"
     )
     assert unknown_report.diabetes_type_counts["none"] == 1
-    unknown_diabetes = dataset.conditions[0].model_copy(update={"patient_id": "unknown"})
-    build_capability_report(replace(dataset, conditions=[unknown_diabetes]), "ordinary_incidence")
+    unknown_diabetes = dataset.conditions[0].model_copy(
+        update={"patient_id": "unknown"}
+    )
+    build_capability_report(
+        replace(dataset, conditions=[unknown_diabetes]), "ordinary_incidence"
+    )
 
 
 @pytest.mark.skipif(
@@ -529,7 +555,9 @@ def test_empty_table_writer(tmp_path: Path) -> None:
 def test_batch_validation_failure_keeps_generation_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(runner_module, "validate", lambda _dataset: SimpleNamespace(passed=False))
+    monkeypatch.setattr(
+        runner_module, "validate", lambda _dataset: SimpleNamespace(passed=False)
+    )
     with pytest.raises(SyntheaGenerationError, match="batch 0"):
         generate_synthea_cohort(_config(tmp_path))
 
@@ -577,7 +605,9 @@ def test_failed_raw_validation_keeps_raw_export(tmp_path: Path) -> None:
     run = tmp_path / "output" / "ordinary_incidence" / "test-run"
     raw_dirs = list((run / "raw").glob("*"))
     assert raw_dirs
-    batch_manifest = json.loads((run / "batch_manifests" / "batch_00000.json").read_text())
+    batch_manifest = json.loads(
+        (run / "batch_manifests" / "batch_00000.json").read_text()
+    )
     generation_manifest = json.loads((run / "manifest.json").read_text())
     assert batch_manifest["state"] == "failed"
     assert batch_manifest["failure_stage"] == "step_2_canonicalization"
@@ -598,7 +628,9 @@ def test_unexpected_batch_error_is_logged_and_persisted(tmp_path: Path) -> None:
         generate_synthea_cohort(_config(tmp_path, batch_generator=exploding))
 
     run = tmp_path / "output" / "ordinary_incidence" / "test-run"
-    batch_manifest = json.loads((run / "batch_manifests" / "batch_00000.json").read_text())
+    batch_manifest = json.loads(
+        (run / "batch_manifests" / "batch_00000.json").read_text()
+    )
     generation_manifest = json.loads((run / "manifest.json").read_text())
     assert batch_manifest["failure_stage"] == "step_1_raw_generation"
     assert batch_manifest["diagnostic"] == "ValueError: generator setup failed"
@@ -659,7 +691,13 @@ def test_cli_module_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     with pytest.raises(SystemExit):
         runpy.run_path(
-            str(Path(__file__).parents[2] / "src" / "metaboguard" / "data" / "__main__.py"),
+            str(
+                Path(__file__).parents[2]
+                / "src"
+                / "metaboguard"
+                / "data"
+                / "__main__.py"
+            ),
             run_name="__main__",
         )
 

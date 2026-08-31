@@ -167,6 +167,29 @@ def _path_for(run_path: Path, endpoint_id: str, horizon: int) -> FeasibilityPath
     )
 
 
+FORBIDDEN_ARTIFACT_ROOT_SEGMENTS = ("model_prototypes", "serving")
+
+
+def _assert_isolated_artifact_root(artifact_root: Path, run_path: Path) -> None:
+    """Reject any output root overlapping serving, prototype, or source-run trees."""
+    resolved_root = artifact_root.resolve()
+    resolved_run = run_path.resolve()
+    if any(
+        segment in FORBIDDEN_ARTIFACT_ROOT_SEGMENTS for segment in resolved_root.parts
+    ):
+        raise ValueError(
+            "artifact_root must not target serving or generic prototype artifact "
+            f"directories: {artifact_root}"
+        )
+    overlaps = (
+        resolved_root == resolved_run
+        or resolved_run in resolved_root.parents
+        or resolved_root in resolved_run.parents
+    )
+    if overlaps:
+        raise ValueError("artifact_root must not overlap the source run directory")
+
+
 def _assert_required_files(paths: FeasibilityPaths) -> None:
     for path in (
         paths.run_manifest,
@@ -1030,6 +1053,7 @@ def build_feasibility_plan(
     artifact_root: Path,
 ) -> dict[str, Any]:
     _ = authorization
+    _assert_isolated_artifact_root(artifact_root, run_path)
     _validate_endpoint_horizon(endpoint_id, horizon)
     paths = _path_for(run_path, endpoint_id, horizon)
     _assert_required_files(paths)
@@ -1147,6 +1171,7 @@ def run_model_feasibility(
     lineage = pd.read_parquet(paths.feature_lineage)
     split_manifest = _load_json(paths.split_manifest)
     run_manifest = _load_json(paths.run_manifest)
+    generation_manifest = _load_json(paths.generation_manifest)
     registry = cast(
         list[dict[str, object]],
         json.loads(paths.feature_registry.read_text(encoding="utf-8")),
@@ -1342,9 +1367,7 @@ def run_model_feasibility(
         "source_run_configuration_sha256": run_manifest.get("configuration_sha256", ""),
         "package_metadata": {
             "config_hash": config_sha256(load_config()),
-            "git_sha": run_manifest.get("artifact_sha256", {}).get(
-                "git_sha", "unavailable"
-            ),
+            "git_sha": generation_manifest.get("git_sha", "unavailable"),
         },
         "partition_label_counts": {
             partition: {
