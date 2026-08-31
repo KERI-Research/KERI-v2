@@ -10,11 +10,18 @@ The system produces clinician-review signals. It is **non-diagnostic**, does not
 
 ## Status
 
-Steps 1 through 6 are complete, and the Step 7 production-generation and endpoint-feasibility workflow is implemented. The current synthetic ordinary-incidence smoke run has a complete feature build and passes leakage validation, but its readiness decision is `not_eligible` because synthetic data is restricted to pipeline rehearsal and the one-year endpoint has fewer than the configured 50 events. No production-scale run has been executed automatically, and no clinical model, score, evaluation result, API, or patient-level predictive output is authorized.
+Steps 1 through 8 are complete. Steps 1–6 established the canonical schema, deterministic conversion/validation, endpoint/cohort construction, patient-isolated splitting, label-blind feature engineering, and model-free readiness/capability gating. Step 7 hardened production orchestration with an idempotent manifest-reconciliation routine (`metaboguard-production --reconcile <run>`), so a completed synthetic run always carries a truthful top-level status instead of a stale pre-run manifest.
 
-The next operational work is executing the configured production-scale synthetic cohort plans and reviewing endpoint-specific feasibility reports. This work must preserve ordinary and enriched cohort separation and must not begin modelling, scoring, or prediction outside the single explicitly approved exception described below.
+A 500-patient `ordinary_incidence` production run is complete end to end (canonical, cohort, split, feature, readiness, and feasibility artifacts for both `type2_diabetes` and `pancreatic_cancer`). Its top-level status is `completed_not_ready`: the pipeline is mechanically sound, but both endpoints remain `not_eligible` because the source is synthetic and neither endpoint reaches the configured 50-event threshold. No production-scale (5,000/25,000-patient) run has been executed yet, and no clinical model, score, evaluation result, API, or patient-level predictive output is authorized.
 
-That exception is Step 8: bounded, professor-approved, synthetic-only model-feasibility experiments run through `metaboguard-model-feasibility`, requiring both `--synthetic-feasibility` and a non-empty `--approval-reference`. Outputs are written only to `artifacts/model_feasibility/`, are permanently tagged simulation-only, and carry a non-removable restriction against clinical use, patient screening, risk assessment, or care decisions. This exception does not enable real-patient inference, does not produce a clinical risk score, and does not constitute a claim of clinical performance, calibration, prevalence, or generalisability; real patient inference remains disabled until an approved real cohort is linked.
+Step 8 adds a bounded, professor-approved, synthetic-only research track — see [docs/Synthetic Model Feasibility.md](docs/Synthetic%20Model%20Feasibility.md):
+
+- `metaboguard-prototype` fits a label-free robust-PCA representation encoder on one approved synthetic run and writes an isolated artifact under `artifacts/model_prototypes/`, always with a model card disclaiming clinical use.
+- `metaboguard-model-feasibility` runs endpoint- and horizon-specific supervised feasibility experiments (a logistic-regression baseline and a representation-head model) under an explicit `SyntheticFeasibilityAuthorization`, requiring both `--synthetic-feasibility` and a non-empty `--approval-reference`. Outputs are written only to `artifacts/model_feasibility/`, are permanently tagged `simulation_only`, `pipeline_rehearsal_only`, and `clinical_use_prohibited`, and ship with a model card and evaluation report.
+
+Neither command enables real-patient inference, produces a clinical risk score, or constitutes a claim of clinical performance, calibration, prevalence, or generalisability. Real patient inference remains disabled until an approved real cohort is linked.
+
+The next operational work is Step 9: large-scale synthetic rehearsal at 5,000 and 25,000 patients, run separately per cohort class. See [docs/Next Steps.md](docs/Next%20Steps.md) for the full remaining plan.
 
 ## Development
 
@@ -27,7 +34,7 @@ uv run mypy src
 uv run pytest
 ```
 
-The test command enforces the configured coverage gate. No data, model binaries, generated biomarkers, or credentials belong in Git.
+The test command enforces the configured coverage gate (currently 70%; the full suite passes with coverage well above that floor). No data, model binaries, generated biomarkers, or credentials belong in Git.
 
 ## Research constraints
 

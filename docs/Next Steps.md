@@ -1,18 +1,18 @@
 # MetaboGuard v2 - Remaining Project Plan
 
-**Status:** Steps 1–6 complete  
-**Current stage:** Step 7 - production orchestration hardening  
+**Status:** Steps 1–8 complete  
+**Current stage:** Step 9 - large-scale synthetic rehearsal  
 **Scope:** Research infrastructure for clinician-reviewed prevention research. This project is non-diagnostic and does not produce patient-level clinical risk claims.
 
 ## Completed Foundation
 
 Steps 1–6 established the canonical longitudinal schema, deterministic conversion and validation, endpoint/cohort construction, patient-isolated splitting, label-blind feature engineering, and model-free readiness/capability gating.
 
-The 500-patient ordinary-incidence rehearsal completed generation and downstream artifact production successfully. It produced canonical data, endpoint cohorts, patient-isolated splits, feature artifacts, validation outputs, readiness outputs, and feasibility outputs. The run remains synthetic, simulation-only, and pipeline-rehearsal-only.
+The 500-patient ordinary-incidence rehearsal completed generation and downstream artifact production successfully. It produced canonical data, endpoint cohorts, patient-isolated splits, feature artifacts, validation outputs, readiness outputs, and feasibility outputs. The run remains synthetic, simulation-only, and pipeline-rehearsal-only. Its top-level manifest is now finalized by Step 7 reconciliation as `completed_not_ready` (both endpoints remain `not_eligible` on event-count grounds).
 
-No predictive model, calibration metric, discrimination metric, clinical utility claim, or patient-level risk output has been created.
+Step 8 added a bounded, professor-approved, synthetic-only model-feasibility track, exercised end to end against this same 500-patient run. No predictive model, calibration metric, discrimination metric, clinical utility claim, or patient-level risk output has been produced for real patients, and none is authorized until Step 9's real-data onboarding.
 
-## Step 7 - Production Orchestration Hardening
+## Step 7 - Production Orchestration Hardening (Complete)
 
 ### Objective
 
@@ -62,13 +62,41 @@ This stale manifest must not be treated as authoritative. The underlying `genera
   - resumed-run finalization
 - Full quality gates pass: pytest, coverage, Ruff, mypy, and lockfile verification.
 
-### Exit condition
+### Exit condition (met)
 
-The repaired 500-patient ordinary-incidence rehearsal has a finalized, internally consistent top-level production manifest.
+The repaired 500-patient ordinary-incidence rehearsal has a finalized, internally consistent top-level production manifest. `reconcile_production_manifest` is idempotent, atomic, fails closed on missing/incomplete artifacts, and is exposed through `metaboguard-production --reconcile <run_path>`.
 
 ---
 
-## Step 8 - Large-Scale Synthetic Rehearsal
+## Step 8 - Synthetic Model Feasibility Study (Complete)
+
+### Objective
+
+Demonstrate, under explicit professor approval and while real longitudinal data remains unavailable, that the pipeline can fit and evaluate simple research-only models on frozen synthetic labels without making any clinical claim.
+
+### What shipped
+
+- `SyntheticFeasibilityAuthorization` requires both an explicit `--synthetic-feasibility` flag and a non-empty `--approval-reference`; the CLI fails closed without both.
+- `metaboguard-model-feasibility` previews an immutable experiment plan by default and only writes artifacts with `--execute`, deriving a deterministic experiment ID from the source run, endpoint, horizon, model configuration, seed, and artifact hashes.
+- Two research-only models: a regularized logistic-regression baseline on train-only-preprocessed engineered features, and a representation-head model built on a train-fitted robust-PCA/self-supervised encoder.
+- Label-state handling restricted to `positive`/`eligible_negative` for fitting and metrics; `censored`, `competing_death`, and `excluded` rows are counted but never used as negatives.
+- Deterministic leakage/shortcut audits: feature-policy and denylist checks, patient-isolation checks, post-index/lineage checks, label-permutation sanity checks, and train-to-temporal-holdout drift warnings.
+- Every artifact (`experiment_manifest.json`, `synthetic_feasibility_report.json`, `MODEL_CARD.md`, per-partition evaluation reports) is tagged `simulation_only: true`, `pipeline_rehearsal_only: true`, `clinical_use_prohibited: true`, and `research_feasibility_only: true`.
+- A separate `metaboguard-prototype` command fits the same label-free robust-PCA encoder as a standalone research artifact under professor approval, with its own non-diagnostic model card.
+
+See [docs/Synthetic Model Feasibility.md](Synthetic%20Model%20Feasibility.md) and [docs/Model Feasibility Evaluation Protocol.md](Model%20Feasibility%20Evaluation%20Protocol.md) for the full contract.
+
+### Interpretation limits
+
+This step demonstrates train-only preprocessing, reproducible fitting, held-out scoring, and leakage stress-testing on synthetic data. It does not demonstrate clinical validity, diagnostic or screening ability, prevalence estimation, calibrated risk-prediction validity, or generalization to real patients.
+
+### Exit condition (met)
+
+At least one endpoint-and-horizon experiment (`ordinary_incidence`, `pancreatic_cancer`, 3-year horizon) completed for both models against the 500-patient run, with full artifact sets, mandatory disclaimers, and passing quality gates.
+
+---
+
+## Step 9 - Large-Scale Synthetic Rehearsal
 
 ### Objective
 
@@ -121,7 +149,7 @@ At least one large ordinary-incidence run completes with truthful top-level mani
 
 ---
 
-## Step 9 - Real Longitudinal Data Onboarding
+## Step 10 - Real Longitudinal Data Onboarding
 
 ### Objective
 
@@ -153,7 +181,7 @@ A complete non-synthetic artifact set exists for at least one endpoint and is ev
 
 ---
 
-## Step 10 - Gated Research-Model Preparation
+## Step 11 - Gated Research-Model Preparation
 
 ### Objective
 
@@ -201,7 +229,7 @@ A research-model protocol and reproducible evaluation plan are ready, with all m
 
 ## Continuous Requirements
 
-Across Steps 7–10:
+Across Steps 7–11:
 
 - Keep all run artifacts versioned, immutable, and hash-linked.
 - Preserve reproducibility through pinned dependencies, fixed seeds, and configuration digests.

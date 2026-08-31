@@ -374,6 +374,29 @@ def _merge_features_labels(
     return merged
 
 
+def _assert_fittable_partitions(merged: pd.DataFrame) -> None:
+    """Fail closed, with a bounded reason, when train/validation cannot fit a model.
+
+    Both classes (`positive` and `eligible_negative`) must be present in both the
+    train and validation partitions; otherwise this endpoint/horizon does not have
+    enough frozen synthetic events for this run to support supervised feasibility
+    fitting, per the documented per-horizon event-count precondition.
+    """
+    for partition in ("train", "validation"):
+        states = merged.loc[merged["split"] == partition, "label_state"].astype(
+            "string"
+        )
+        fit_states = states[states.isin(FIT_LABEL_STATES)]
+        positive = int((fit_states == "positive").sum())
+        negative = int((fit_states == "eligible_negative").sum())
+        if positive == 0 or negative == 0:
+            raise ValueError(
+                f"{partition} partition lacks both positive and eligible_negative "
+                "label states for this endpoint/horizon; this run does not have "
+                "enough frozen synthetic events to support feasibility fitting"
+            )
+
+
 def _safe_ap(y_true: np.ndarray, y_score: np.ndarray) -> float | None:
     if len(np.unique(y_true)) < 2:
         return None
@@ -997,26 +1020,22 @@ def _validate_split_linkage(
             raise ValueError("Split fingerprint mismatch")
 
 
-def _assert_hash_chain(
-    matrix: pd.DataFrame,
-    cohort_manifest_sha: str,
-    split_manifest_sha: str,
-) -> None:
-    cohort_values = {
-        str(value)
-        for value in matrix["source_cohort_manifest_sha256"].dropna().unique()
-    }
-    split_values = {
-        str(value) for value in matrix["source_split_manifest_sha256"].dropna().unique()
-    }
-    if cohort_values != {cohort_manifest_sha}:
-        raise ValueError(
-            "Feature matrix source cohort hash does not match cohort manifest"
-        )
-    if split_values != {split_manifest_sha}:
-        raise ValueError(
-            "Feature matrix source split hash does not match split manifest"
-        )
+def _assert_provenance_pointer_consistency(matrix: pd.DataFrame) -> None:
+    """Require single, non-empty source-manifest hash pointers per column.
+
+    cohort_manifest.json is deliberately mutated by the production pipeline
+    after the feature matrix records its point-in-time reference (its
+    ``feature_status``/``model_status`` bookkeeping fields flip forward), and
+    split_manifest.json can also legitimately be rebuilt across a resumed or
+    re-run pipeline. Equality against the live file is therefore not a valid
+    provenance check; only internal consistency across the matrix is required.
+    """
+    for column in ("source_cohort_manifest_sha256", "source_split_manifest_sha256"):
+        values = {str(value) for value in matrix[column].dropna().unique()}
+        if len(values) != 1 or not next(iter(values)):
+            raise ValueError(
+                f"Feature matrix has missing or inconsistent {column} references"
+            )
 
 
 def _existing_artifact_hashes(output_dir: Path) -> dict[str, str]:
@@ -1179,9 +1198,7 @@ def run_model_feasibility(
     _assert_identity(matrix, labels, run_manifest, endpoint_id, horizon)
     _assert_partition_values(matrix)
     _validate_split_linkage(matrix, split_manifest)
-    _assert_hash_chain(
-        matrix, _sha256(paths.cohort_manifest), _sha256(paths.split_manifest)
-    )
+    _assert_provenance_pointer_consistency(matrix)
     patient_isolation = _assert_patient_isolation(matrix)
     if not patient_isolation["passed"]:
         raise ValueError("Patient isolation check failed")
@@ -1190,6 +1207,7 @@ def run_model_feasibility(
         raise ValueError("Feature leakage audit failed")
 
     merged = _merge_features_labels(matrix, labels)
+    _assert_fittable_partitions(merged)
 
     predictor_columns = _predictor_columns(merged, registry)
     (

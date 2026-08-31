@@ -1,4 +1,4 @@
-Implement MetaboGuard v2 Step 8 only: Synthetic Model Feasibility Study.
+# Implement MetaboGuard v2 Step 8 only: Synthetic Model Feasibility Study
 
 Do not modify, weaken, bypass, or reinterpret any real-data authorization, governance, readiness, clinical-use, or serving gates. This step is an explicitly bounded, professor-approved, synthetic-only research feasibility study while Biobank data remains unavailable.
 

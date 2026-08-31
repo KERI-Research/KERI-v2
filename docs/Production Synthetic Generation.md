@@ -10,6 +10,14 @@ Enriched-incidence data is an explicit stress-test stratum. Augmentation provena
 
 Production configuration lives under `production_generation` in `configs/default.yaml`. Production targets are not silently reduced, seeds are not silently changed, and ordinary and enriched runs are never pooled.
 
+The production CLI stops after Step 1-3 dataset generation by default. Pass `--pipeline` to also run the frozen Steps 4-6 (cohort construction, splitting, feature extraction, and readiness) for every configured endpoint in one command. A run that stops without `--pipeline` can be extended later by rerunning the same command with `--pipeline`; only missing stages are built.
+
+Every run, whether freshly generated, resumed, interrupted, or extended, ends by reconciling its top-level `manifest.json` from durable underlying artifacts (`generation_manifest.json`, batch manifests, canonical/cohort/split/feature/readiness/feasibility artifacts). This produces a truthful status such as `completed`, `completed_not_ready`, `completed_prototype_ready`, `partial`, or `failed`, and is idempotent: rerunning it against an unchanged completed run yields the same result. Reconcile an existing run directly without generating anything:
+
+```bash
+uv run metaboguard-production ordinary_incidence --reconcile data/synthetic_longitudinal/production/ordinary_incidence/<run_id>
+```
+
 ## Production CLI
 
 Use the `metaboguard-production` command for Step 7 runs. It uses the configured Java executable, JVM options, pinned Synthea JAR, output root, and cohort-specific production plan. It never runs both cohort classes from a single command.
@@ -67,3 +75,5 @@ Run `ordinary_incidence` first and review its canonical validation, cohort, feat
 ```bash
 uv run metaboguard-production enriched_incidence --patients 500 --execute
 ```
+
+The completed 500-patient `ordinary_incidence` run (`ordinary_incidence-500-202608303-cb4d24b6e243`) has a finalized top-level status of `completed_not_ready`: canonical, cohort, split, feature, readiness, and feasibility artifacts all exist for both `type2_diabetes` and `pancreatic_cancer`, but both endpoints remain `not_eligible` because the source is synthetic and event counts fall below the configured threshold. Downstream, bounded, professor-approved research use of this run's artifacts is documented in [Synthetic Model Feasibility.md](Synthetic%20Model%20Feasibility.md).
