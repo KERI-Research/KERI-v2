@@ -4,7 +4,7 @@ Step 4 turns a validated canonical longitudinal dataset into immutable patient-i
 
 An index date is a patient-specific prediction cutoff. Only canonical events with `event_date <= index_date` are retained in the index history summary. Rolling candidates begin after the configured history requirement, advance by the configured interval, stop at the final valid observed date, and never continue after death or endpoint onset.
 
-Eligibility is endpoint-specific. Patients below the minimum age, without enough history, encounters, or measurement dates, or with prevalent endpoint disease are excluded with reason codes. Cancer site and diabetes type are matched from canonical condition records. Type 1 and gestational diabetes remain disabled for future-development endpoints.
+Eligibility is endpoint-specific. Patients below the minimum age, without enough history, encounters, or measurement dates, or with prevalent endpoint disease are excluded with reason codes. Cancer site and diabetes type are matched from canonical condition records. Type 1 and gestational diabetes remain disabled for future-development endpoints; `metaboguard.models.typing_heads.TypingHeadModel` enforces this in code, failing closed for every typing target under every authorization path.
 
 Ordinary-incidence and enriched cohort classes are never pooled. Every constructed cohort carries one class and is marked `simulation_only: true`. No model-ready feature table is written in this step.
 

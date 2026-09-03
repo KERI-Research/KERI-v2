@@ -83,6 +83,10 @@ Demonstrate, under explicit professor approval and while real longitudinal data 
 - Deterministic leakage/shortcut audits: feature-policy and denylist checks, patient-isolation checks, post-index/lineage checks, label-permutation sanity checks, and train-to-temporal-holdout drift warnings.
 - Every artifact (`experiment_manifest.json`, `synthetic_feasibility_report.json`, `MODEL_CARD.md`, per-partition evaluation reports) is tagged `simulation_only: true`, `pipeline_rehearsal_only: true`, `clinical_use_prohibited: true`, and `research_feasibility_only: true`.
 - A separate `metaboguard-prototype` command fits the same label-free robust-PCA encoder as a standalone research artifact under professor approval, with its own non-diagnostic model card.
+- `src/metaboguard/models/` also carries bounded, capability-gated model boundary modules for future research-model preparation, each with a mandatory non-diagnostic model-card restriction and no clinical authorization today:
+  - `risk_heads.py` (`LogisticRiskHead`): a train-split-only, denylist-audited logistic risk head, fittable either under real `capability_report` authorization or explicit synthetic-prototype approval.
+  - `calibration.py` (`RiskCalibrator`): a validation-split-only calibration mapping (isotonic when ≥50 rows and ≥10 events, otherwise Platt/logistic) that never touches train, test, or temporal-holdout rows, per [docs/v1-docs/FUTURE_RISK_EVALUATION.md](v1-docs/FUTURE_RISK_EVALUATION.md).
+  - `typing_heads.py` (`TypingHeadModel`): a hard-gated boundary that always fails closed for cancer-type and diabetes-type classification, since those values are matched from canonical condition records rather than predicted (see [docs/Cohort Management/Cohort Construction.md](Cohort%20Management/Cohort%20Construction.md)).
 
 See [docs/Synthetic Model Feasibility.md](Synthetic%20Model%20Feasibility.md) and [docs/Model Feasibility Evaluation Protocol.md](Model%20Feasibility%20Evaluation%20Protocol.md) for the full contract.
 

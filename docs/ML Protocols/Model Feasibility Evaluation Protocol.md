@@ -68,6 +68,10 @@ Step 8 runs deterministic audits for:
 - compact metabolic/laboratory feature ablation
 - train-to-temporal-holdout score-distribution drift (warning-only)
 
+## Calibration boundary
+
+`metaboguard.models.calibration.RiskCalibrator` fits a calibration mapping strictly on `validation`-split, frozen-label rows; fitting on any other split raises `CalibrationAuthorizationError`. It selects isotonic regression when the validation partition has at least 50 rows and at least 10 events, otherwise it falls back to Platt (logistic) scaling, and records which method was used. Test and temporal-holdout rows are only ever scored, never fitted.
+
 ## Reporting language restrictions
 
 - Do not label metrics as clinical performance.
