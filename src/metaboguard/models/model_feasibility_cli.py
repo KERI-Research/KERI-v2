@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from metaboguard.models.model_feasibility import (
+    DATASET_ALIASES,
     SyntheticFeasibilityAuthorization,
     run_model_feasibility,
 )
@@ -24,6 +25,16 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--approval-reference", required=True)
     parser.add_argument("--seed", type=int, default=1729)
+    parser.add_argument(
+        "--dataset",
+        choices=sorted(DATASET_ALIASES),
+        default=None,
+        help=(
+            "Explicit cohort class to run: 'ordinary' for ordinary_incidence or "
+            "'enriched' for enriched_incidence. Must match the source run's cohort "
+            "class; omit to auto-detect from the source run manifest."
+        ),
+    )
     parser.add_argument(
         "--artifact-root",
         type=Path,
@@ -57,6 +68,7 @@ def main() -> int:
         artifact_root=args.artifact_root,
         execute=args.execute,
         overwrite=args.overwrite,
+        dataset=args.dataset,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

@@ -59,7 +59,8 @@ SYNTHETIC_FLAGS = {
 }
 
 SUPPORTED_HORIZONS = {1, 3, 5}
-SUPPORTED_PRIMARY_COHORT = "ordinary_incidence"
+DATASET_ALIASES = {"ordinary": "ordinary_incidence", "enriched": "enriched_incidence"}
+SUPPORTED_COHORT_CLASSES = frozenset(DATASET_ALIASES.values())
 EVAL_PARTITIONS = ("validation", "test", "temporal_holdout")
 FIT_LABEL_STATES = {"positive", "eligible_negative"}
 DENYLIST_TOKENS = (
@@ -208,6 +209,16 @@ def _assert_required_files(paths: FeasibilityPaths) -> None:
             raise ValueError(f"Missing required feasibility input artifact: {path}")
 
 
+def _resolve_dataset(dataset: str | None) -> str | None:
+    """Map a --dataset alias (or full cohort class name) to its canonical form."""
+    if dataset is None:
+        return None
+    canonical = DATASET_ALIASES.get(dataset, dataset)
+    if canonical not in SUPPORTED_COHORT_CLASSES:
+        raise ValueError(f"Unsupported --dataset value: {dataset}")
+    return canonical
+
+
 def _validate_endpoint_horizon(endpoint_id: str, horizon: int) -> None:
     registry = load_endpoint_registry()
     if endpoint_id not in registry:
@@ -324,6 +335,7 @@ def _assert_identity(
     run_manifest: dict[str, Any],
     endpoint_id: str,
     horizon: int,
+    expected_dataset: str | None = None,
 ) -> None:
     cohort_values = {str(value) for value in matrix["cohort_class"].dropna().unique()}
     endpoint_values = {str(value) for value in matrix["endpoint_id"].dropna().unique()}
@@ -332,8 +344,15 @@ def _assert_identity(
     cohort_class = assert_same_cohort_class(list(cohort_values))
     if cohort_class != str(run_manifest.get("cohort_class", "")):
         raise ValueError("Feature matrix cohort class does not match source run")
-    if cohort_class != SUPPORTED_PRIMARY_COHORT:
-        raise ValueError("Step 8 primary feasibility supports ordinary_incidence only")
+    if cohort_class not in SUPPORTED_COHORT_CLASSES:
+        raise ValueError(
+            "Step 8 feasibility supports ordinary_incidence and enriched_incidence only"
+        )
+    if expected_dataset is not None and cohort_class != expected_dataset:
+        raise ValueError(
+            f"Requested --dataset does not match source run cohort class: "
+            f"expected {expected_dataset}, found {cohort_class}"
+        )
     if endpoint_values != {endpoint_id}:
         raise ValueError("Feature matrix endpoint mismatch")
     label_endpoints = {str(value) for value in labels["endpoint_id"].dropna().unique()}
@@ -437,9 +456,10 @@ def _prepare_frame(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
         or isinstance(prepared[column].dtype, pd.CategoricalDtype)
     ]
     for column in categorical_columns:
-        prepared[column] = (
-            prepared[column].astype("string").replace({"<NA>": pd.NA}).astype("object")
-        )
+        values = prepared[column].astype("string").to_numpy(dtype=object)
+        mask = np.array([not pd.isna(v) and v == "<NA>" for v in values])
+        values[mask] = pd.NA
+        prepared[column] = values
     return prepared
 
 
@@ -521,7 +541,7 @@ def _select_logistic_hyperparameter(
             class_weight="balanced",
             solver="lbfgs",
             random_state=seed,
-            max_iter=1000,
+            max_iter=5000,
         )
         model.fit(train_x, train_y)
         probs = model.predict_proba(validation_x)[:, 1]
@@ -1070,8 +1090,10 @@ def build_feasibility_plan(
     authorization: SyntheticFeasibilityAuthorization,
     seed: int,
     artifact_root: Path,
+    dataset: str | None = None,
 ) -> dict[str, Any]:
     _ = authorization
+    resolved_dataset = _resolve_dataset(dataset)
     _assert_isolated_artifact_root(artifact_root, run_path)
     _validate_endpoint_horizon(endpoint_id, horizon)
     paths = _path_for(run_path, endpoint_id, horizon)
@@ -1082,6 +1104,16 @@ def build_feasibility_plan(
     split_manifest = _load_json(paths.split_manifest)
     feature_manifest = _load_json(paths.feature_manifest)
     endpoint_protocol = _load_json(paths.endpoint_protocol)
+    cohort_class = str(run_manifest.get("cohort_class", ""))
+    if cohort_class not in SUPPORTED_COHORT_CLASSES:
+        raise ValueError(
+            f"Unsupported cohort class for Step 8 feasibility: {cohort_class}"
+        )
+    if resolved_dataset is not None and cohort_class != resolved_dataset:
+        raise ValueError(
+            f"Requested --dataset does not match source run cohort class: "
+            f"expected {resolved_dataset}, found {cohort_class}"
+        )
     if run_manifest.get("status") not in {
         "completed",
         "completed_not_ready",
@@ -1159,7 +1191,9 @@ def run_model_feasibility(
     artifact_root: Path = Path("artifacts/model_feasibility"),
     execute: bool = False,
     overwrite: bool = False,
+    dataset: str | None = None,
 ) -> dict[str, Any]:
+    resolved_dataset = _resolve_dataset(dataset)
     plan = build_feasibility_plan(
         run_path,
         endpoint_id,
@@ -1167,6 +1201,7 @@ def run_model_feasibility(
         authorization,
         seed,
         artifact_root,
+        dataset,
     )
     if not execute:
         return {"execute": False, "plan": plan}
@@ -1195,7 +1230,9 @@ def run_model_feasibility(
         list[dict[str, object]],
         json.loads(paths.feature_registry.read_text(encoding="utf-8")),
     )
-    _assert_identity(matrix, labels, run_manifest, endpoint_id, horizon)
+    _assert_identity(
+        matrix, labels, run_manifest, endpoint_id, horizon, resolved_dataset
+    )
     _assert_partition_values(matrix)
     _validate_split_linkage(matrix, split_manifest)
     _assert_provenance_pointer_consistency(matrix)

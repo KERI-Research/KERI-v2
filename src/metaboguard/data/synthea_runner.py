@@ -231,7 +231,7 @@ def _run_java_batch(
         "-s",
         str(seed),
         "--exporter.csv.export=true",
-        "--exporter.fhir.export=false",
+        "--exporter.fhir.export=true",
         "--exporter.baseDirectory=" + raw_dir.resolve().as_posix(),
         "--exporter.years_of_history=10",
     ]
@@ -257,7 +257,7 @@ def _run_java_batch(
                 "-s",
                 str(seed),
                 "--exporter.csv.export=true",
-                "--exporter.fhir.export=false",
+                "--exporter.fhir.export=true",
                 "--exporter.baseDirectory=" + raw_dir.resolve().as_posix(),
                 "--exporter.years_of_history=10",
             ]

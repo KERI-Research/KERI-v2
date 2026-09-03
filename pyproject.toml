@@ -23,6 +23,7 @@ dependencies = [
 metaboguard-production = "metaboguard.data.production_cli:main"
 metaboguard-prototype = "metaboguard.models.prototype_training:main"
 metaboguard-model-feasibility = "metaboguard.models.model_feasibility_cli:main"
+metaboguard-feasibility-report = "metaboguard.models.feasibility_viewer_cli:main"
 
 [dependency-groups]
 dev = [
